@@ -12,10 +12,10 @@ No minimal `environment.yml` is needed when all machines share the same OS and a
 
 ```
 project-root/
-??? environment.lock.yml        # full conda export, committed to git
-??? scripts/
-    ??? update_lock.bat         # run after installing/updating packages
-    ??? sync_env.bat            # run on the other machine after pulling
++-- environment.lock.yml        # full conda export, committed to git
++-- scripts/
+    +-- update_lock.bat         # run after installing/updating packages
+    +-- sync_env.bat            # run on the other machine after pulling
 ```
 
 ## Usage
