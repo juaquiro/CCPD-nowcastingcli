@@ -302,6 +302,93 @@ def test_humidity_above_100_raises():
 
 ---
 
+## `normalize_pressure()` — Barometric QNH Formula
+
+### What it computes
+
+A weather station sits at some altitude. Its raw reading is **station pressure** (what the air actually weighs at that height). To compare stations at different elevations — and to produce the sea-level pressure shown on synoptic charts — you need **QNH**, the pressure the station *would* read if it were at sea level. `normalize_pressure()` does that conversion.
+
+### The math, step by step
+
+The underlying physics is the **hypsometric (barometric) formula**, derived from hydrostatic equilibrium and the ideal-gas law:
+
+```
+P₀ = P_station × (T₀ / T_station) ^ (g·M / R·L)
+```
+
+Rearranging so T₀ appears only once:
+
+```
+P₀ = P_station × (1 − L·h / T₀) ^ −(g·M / R·L)
+```
+
+The code substitutes each piece:
+
+**`0.0065` — the temperature lapse rate, L (K/m)**
+
+The International Standard Atmosphere (ISA) assumes temperature falls by **6.5 K per 1000 m** of altitude. This is `L = 0.0065 K/m`.
+
+**`temperature_c + 0.0065 * altitude_m + 273.15` — sea-level temperature, T₀ (K)**
+
+The station temperature is measured at `altitude_m` above sea level. To get what the temperature *would be* at sea level, you add back the lapse-rate warming for the full column:
+
+```
+T₀ = T_station_Kelvin + L × h
+   = (temperature_c + 273.15) + 0.0065 × altitude_m
+```
+
+The `+ 273.15` converts Celsius to Kelvin.
+
+**`(0.0065 * altitude_m) / T₀` — the fractional temperature drop**
+
+This ratio is `L·h / T₀`, the fraction by which the temperature column contracts between station and sea level. It is always < 1 for realistic inputs.
+
+**`(1 − L·h/T₀) ^ −5.257` — the pressure correction factor**
+
+The exponent **5.257** is `g·M / (R·L)`:
+
+| Symbol | Meaning | Value |
+|--------|---------|-------|
+| g | gravitational acceleration | 9.80665 m/s² |
+| M | molar mass of dry air | 0.028964 kg/mol |
+| R | universal gas constant | 8.31446 J/(mol·K) |
+| L | lapse rate | 0.0065 K/m |
+
+```
+g·M / (R·L) = (9.80665 × 0.028964) / (8.31446 × 0.0065) ≈ 5.257
+```
+
+The **negative** exponent flips the ratio: because pressure decreases with altitude, correcting upward to sea level requires multiplying by something **greater than 1**, which `(fraction < 1)^−5.257` delivers.
+
+**Final multiplication**
+
+```
+QNH = P_station × correction_factor
+```
+
+For a typical mountain station at 1500 m, 15 °C, 850 hPa, the correction factor is ≈ 1.196, giving QNH ≈ 1016 hPa — a plausible sea-level pressure.
+
+### Approximations being made
+
+| Approximation | What it assumes | Reality |
+|--------------|-----------------|---------|
+| Constant lapse rate | Temperature always drops at 6.5 K/km | Varies with weather: inversions, convective instability, fronts |
+| Dry air molar mass | Uses M = 0.02896 kg/mol | Humid air is lighter (M_water = 0.018). Error scales with humidity and altitude |
+| Ideal gas | PV = nRT exactly | Small correction at high pressures, negligible here |
+| Hydrostatic equilibrium | No vertical accelerations | Breaks in strong convection or turbulence |
+| Constant gravity | g does not change with altitude | g decreases by ~0.03% per 100 m — negligible below 5 km |
+
+### When it breaks down
+
+- **Above ~5000 m**: the ISA lapse rate diverges from the actual atmosphere; the tropopause (~11 km) has L ≈ 0 and the formula is simply wrong above it.
+- **Temperature inversions**: when temperature *increases* with altitude (common at night, in fog, near fronts), the real pressure correction can differ substantially from what the 6.5 K/km constant predicts.
+- **High-humidity environments**: using dry-air molar mass underestimates the correction slightly; significant in tropical boundary layers.
+- **Precision aviation/meteorology**: ICAO QNH procedures tolerate this approximation, but scientific reanalysis systems use more sophisticated vertical integration.
+
+For the intended use case — surface weather station normalization below 5000 m in mid-latitudes — the error is typically < 1–2 hPa, which is within observational uncertainty.
+
+---
+
 ## Interactive REPL
 
 ```bash
