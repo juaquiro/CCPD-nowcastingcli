@@ -68,3 +68,41 @@ def test_extreme_cold_does_not_crash():
     """
     result = normalize_pressure(900.0, altitude_m=3000.0, temperature_c=-40.0)
     assert result > 0
+
+
+# --- Guards ---
+
+def test_zero_pressure_raises():
+    """pressure_hpa=0 is physically impossible — must raise ValueError.
+
+    Run: pytest tests/test_physics.py::test_zero_pressure_raises -v
+    """
+    with pytest.raises(ValueError, match="pressure_hpa"):
+        normalize_pressure(0.0, altitude_m=100.0, temperature_c=15.0)
+
+
+def test_negative_pressure_raises():
+    """Negative pressure is physically impossible — must raise ValueError.
+
+    Run: pytest tests/test_physics.py::test_negative_pressure_raises -v
+    """
+    with pytest.raises(ValueError, match="pressure_hpa"):
+        normalize_pressure(-10.0, altitude_m=100.0, temperature_c=15.0)
+
+
+def test_altitude_above_limit_raises():
+    """altitude_m > 5000 exceeds the ISA troposphere model — must raise ValueError.
+
+    Run: pytest tests/test_physics.py::test_altitude_above_limit_raises -v
+    """
+    with pytest.raises(ValueError, match="altitude_m"):
+        normalize_pressure(1013.25, altitude_m=5001.0, temperature_c=15.0)
+
+
+def test_altitude_at_limit_is_accepted():
+    """altitude_m == 5000 is exactly at the boundary — must not raise.
+
+    Run: pytest tests/test_physics.py::test_altitude_at_limit_is_accepted -v
+    """
+    result = normalize_pressure(1013.25, altitude_m=5000.0, temperature_c=15.0)
+    assert result > 0

@@ -26,7 +26,13 @@ def run() -> None:
             raw = Prompt.ask("\nEnter pressure (hPa), or 'q' to quit")
             if raw.strip().lower() == "q":
                 break
-            pressure_raw = float(raw)
+            try:
+                pressure_raw = float(raw)
+                if not (0.1 <= pressure_raw <= 1100.0):
+                    raise ValueError
+            except ValueError:
+                console.print("[red]Value must be between 0.1 and 1100.0[/red]")
+                continue
             temperature  = get_float("Temperature (°C)", -60, 60)
             humidity     = get_float("Relative Humidity (%)", 0, 100)
             altitude     = get_float("GPS Altitude (m)", -500, 5000)

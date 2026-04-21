@@ -171,3 +171,61 @@ def test_run_exits_on_eof():
     """
     with patch("nowcastingcli.main.Prompt.ask", side_effect=EOFError):
         run()
+
+
+# --- Regression: invalid pressure input must not crash ---
+# Before the fix, pressure was read with a raw float() call that bypassed
+# validation.  Entering 0 or a negative value would reach normalize_pressure()
+# and raise an unhandled ValueError.  The loop now validates pressure inline
+# and uses `continue` to re-prompt rather than crashing.
+
+def test_run_zero_pressure_does_not_crash():
+    """Entering '0' for pressure must be rejected and re-prompt, not crash.
+
+    side_effect sequence: '0' is rejected → 'q' exits the session.
+    render_dashboard is never called because no valid observation was created.
+
+    Run: pytest tests/test_main.py::test_run_zero_pressure_does_not_crash -v
+    """
+    with patch("nowcastingcli.main.Prompt.ask", side_effect=["0", "q"]), \
+         patch("nowcastingcli.main.render_dashboard") as mock_render:
+        run()
+    mock_render.assert_not_called()
+
+
+def test_run_negative_pressure_does_not_crash():
+    """Entering a negative pressure must be rejected and re-prompt, not crash.
+
+    Run: pytest tests/test_main.py::test_run_negative_pressure_does_not_crash -v
+    """
+    with patch("nowcastingcli.main.Prompt.ask", side_effect=["-5", "q"]), \
+         patch("nowcastingcli.main.render_dashboard") as mock_render:
+        run()
+    mock_render.assert_not_called()
+
+
+def test_run_non_numeric_pressure_does_not_crash():
+    """Entering a non-numeric string for pressure must be rejected gracefully.
+
+    Run: pytest tests/test_main.py::test_run_non_numeric_pressure_does_not_crash -v
+    """
+    with patch("nowcastingcli.main.Prompt.ask", side_effect=["abc", "q"]), \
+         patch("nowcastingcli.main.render_dashboard") as mock_render:
+        run()
+    mock_render.assert_not_called()
+
+
+def test_run_recovers_after_bad_pressure():
+    """After a rejected pressure, the next valid entry completes a full cycle.
+
+    Sequence: '0' rejected → '1013.25' accepted → temperature, humidity,
+    altitude → 'q' exits.  One observation must be created.
+
+    Run: pytest tests/test_main.py::test_run_recovers_after_bad_pressure -v
+    """
+    prompts = ["0", "1013.25", "20.0", "50.0", "100.0", "q"]
+    with patch("nowcastingcli.main.Prompt.ask", side_effect=prompts), \
+         patch("nowcastingcli.main.render_dashboard") as mock_render:
+        run()
+    mock_render.assert_called_once()
+    assert len(mock_render.call_args[0][0]) == 1
