@@ -46,7 +46,7 @@ def test_known_value_burgos():
     Run: pytest tests/test_physics.py::test_known_value_burgos -v
     """
     qnh = normalize_pressure(950.0, altitude_m=856.0, temperature_c=15.0)
-    assert pytest.approx(qnh, abs=2.0) == 1052.0
+    assert qnh == pytest.approx(1052.0, abs=2.0)
 
 
 # --- Edge cases and guard rails ---

@@ -6,17 +6,30 @@ from rich.text import Text
 from rich import box
 
 from .models import Observation
-from .heuristics import WORSENING, IMPROVING, assess_conditions
+from .heuristics import WORSENING, IMPROVING, STABLE, assess_conditions
 
 console = Console()
 
 VERDICT_STYLE = {
     WORSENING: ("🔴 CONDITIONS WORSENING", "bold red"),
     IMPROVING: ("🟢 CONDITIONS IMPROVING", "bold green"),
-    "stable":  ("🟡 CONDITIONS STABLE",    "bold yellow"),
+    STABLE:    ("🟡 CONDITIONS STABLE",    "bold yellow"),
 }
 
 SPARKLINE_CHARS = "▁▂▃▄▅▆▇█"
+
+
+def format_observation(obs: Observation) -> str:
+    """Return a human-readable multi-line string for a single Observation."""
+    u = obs.units
+    return (
+        f"Observation @ {obs.timestamp}\n"
+        f"  pressure_raw : {obs.pressure_raw} {u.get('pressure_raw', '')}\n"
+        f"  pressure_qnh : {obs.pressure_qnh} {u.get('pressure_qnh', '')}\n"
+        f"  temperature  : {obs.temperature} {u.get('temperature', '')}\n"
+        f"  humidity     : {obs.humidity} {u.get('humidity', '')}\n"
+        f"  altitude     : {obs.altitude} {u.get('altitude', '')}"
+    )
 
 
 def sparkline(values: list[float]) -> str:

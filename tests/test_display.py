@@ -5,7 +5,7 @@ from unittest.mock import patch
 from datetime import datetime
 
 from nowcastingcli.models import Observation
-from nowcastingcli.display import sparkline, trend_arrow, render_dashboard, SPARKLINE_CHARS
+from nowcastingcli.display import sparkline, trend_arrow, render_dashboard, format_observation, SPARKLINE_CHARS
 
 
 VALID_TS = datetime(2024, 6, 1, 12, 0, 0)
@@ -217,3 +217,59 @@ def test_render_dashboard_prints_to_console(mock_console):
     """
     render_dashboard([_obs()])
     assert mock_console.print.call_count >= 2
+
+
+# ---------------------------------------------------------------------------
+# format_observation
+# ---------------------------------------------------------------------------
+
+def test_format_observation_contains_timestamp():
+    """Output must include the observation timestamp.
+
+    Run: pytest tests/test_display.py::test_format_observation_contains_timestamp -v
+    """
+    obs = _obs()
+    assert str(VALID_TS) in format_observation(obs)
+
+
+def test_format_observation_contains_all_field_labels():
+    """Output must include all field labels.
+
+    Run: pytest tests/test_display.py::test_format_observation_contains_all_field_labels -v
+    """
+    text = format_observation(_obs())
+    for label in ("pressure_raw", "pressure_qnh", "temperature", "humidity", "altitude"):
+        assert label in text
+
+
+def test_format_observation_contains_units():
+    """Output must include unit strings from the units dict.
+
+    Run: pytest tests/test_display.py::test_format_observation_contains_units -v
+    """
+    text = format_observation(_obs())
+    assert "hPa" in text
+    assert "°C" in text
+    assert "%" in text
+
+
+def test_format_observation_contains_values():
+    """Output must include the numeric field values.
+
+    Run: pytest tests/test_display.py::test_format_observation_contains_values -v
+    """
+    text = format_observation(_obs(pressure_raw=999.9, temperature=-5.5, humidity=33.0, altitude=250.0))
+    assert "999.9" in text
+    assert "-5.5" in text
+    assert "33.0" in text
+    assert "250.0" in text
+
+
+def test_format_observation_custom_units():
+    """Custom units dict is reflected in the output.
+
+    Run: pytest tests/test_display.py::test_format_observation_custom_units -v
+    """
+    obs = _obs()
+    obs.units["temperature"] = "K"
+    assert "K" in format_observation(obs)

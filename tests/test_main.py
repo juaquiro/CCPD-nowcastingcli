@@ -2,7 +2,9 @@
 # Run all tests in this file: pytest tests/test_main.py -v
 import pytest
 from unittest.mock import patch
-from nowcastingcli.main import get_float, run
+from nowcastingcli.main import get_float, run, edit_observation
+from nowcastingcli.models import Observation
+from datetime import datetime
 
 
 # ---------------------------------------------------------------------------
@@ -229,3 +231,119 @@ def test_run_recovers_after_bad_pressure():
         run()
     mock_render.assert_called_once()
     assert len(mock_render.call_args[0][0]) == 1
+
+
+# ---------------------------------------------------------------------------
+# edit_observation
+# ---------------------------------------------------------------------------
+
+def _make_obs(**overrides) -> Observation:
+    defaults = dict(
+        timestamp=datetime(2024, 6, 1, 12, 0, 0),
+        pressure_raw=1013.25,
+        pressure_qnh=1015.0,
+        temperature=20.0,
+        humidity=50.0,
+        altitude=100.0,
+    )
+    defaults.update(overrides)
+    return Observation(**defaults)
+
+
+def test_edit_observation_updates_temperature():
+    """Selecting field 2 (temperature) updates the observation's temperature.
+
+    Prompt sequence: index "1" → field "2" → new value "25.0".
+
+    Run: pytest tests/test_main.py::test_edit_observation_updates_temperature -v
+    """
+    obs = _make_obs()
+    with patch("nowcastingcli.main.Prompt.ask", side_effect=["1", "2", "25.0"]), \
+         patch("nowcastingcli.main.render_dashboard"):
+        edit_observation([obs])
+    assert obs.temperature == pytest.approx(25.0)
+
+
+def test_edit_observation_updates_humidity_only():
+    """Field 3 (humidity) update must NOT change pressure_qnh.
+
+    Run: pytest tests/test_main.py::test_edit_observation_updates_humidity_only -v
+    """
+    obs = _make_obs(pressure_qnh=1015.0)
+    with patch("nowcastingcli.main.Prompt.ask", side_effect=["1", "3", "80.0"]), \
+         patch("nowcastingcli.main.render_dashboard"):
+        edit_observation([obs])
+    assert obs.humidity == pytest.approx(80.0)
+    assert obs.pressure_qnh == pytest.approx(1015.0)
+
+
+def test_edit_observation_rederives_qnh_on_pressure_change():
+    """Field 1 (pressure_raw) change must re-derive pressure_qnh.
+
+    Run: pytest tests/test_main.py::test_edit_observation_rederives_qnh_on_pressure_change -v
+    """
+    obs = _make_obs(pressure_raw=1013.25, pressure_qnh=1015.0)
+    original_qnh = obs.pressure_qnh
+    with patch("nowcastingcli.main.Prompt.ask", side_effect=["1", "1", "1000.0"]), \
+         patch("nowcastingcli.main.render_dashboard"):
+        edit_observation([obs])
+    assert obs.pressure_raw == pytest.approx(1000.0)
+    assert obs.pressure_qnh != pytest.approx(original_qnh)
+
+
+def test_edit_observation_invalid_index_returns_early():
+    """An out-of-range index prints an error and leaves observations unchanged.
+
+    Run: pytest tests/test_main.py::test_edit_observation_invalid_index_returns_early -v
+    """
+    obs = _make_obs()
+    with patch("nowcastingcli.main.Prompt.ask", side_effect=["99"]), \
+         patch("nowcastingcli.main.render_dashboard") as mock_render:
+        edit_observation([obs])
+    mock_render.assert_not_called()
+
+
+def test_edit_observation_invalid_field_returns_early():
+    """An unrecognised field choice prints an error and leaves observations unchanged.
+
+    Run: pytest tests/test_main.py::test_edit_observation_invalid_field_returns_early -v
+    """
+    obs = _make_obs(temperature=20.0)
+    with patch("nowcastingcli.main.Prompt.ask", side_effect=["1", "9"]), \
+         patch("nowcastingcli.main.render_dashboard") as mock_render:
+        edit_observation([obs])
+    mock_render.assert_not_called()
+    assert obs.temperature == pytest.approx(20.0)
+
+
+def test_run_edit_with_no_observations_shows_warning():
+    """'e' before any observation is entered shows a warning and loops back.
+
+    Prompt sequence: 'e' (no obs yet) → 'q' exits.
+    render_dashboard must never be called.
+
+    Run: pytest tests/test_main.py::test_run_edit_with_no_observations_shows_warning -v
+    """
+    with patch("nowcastingcli.main.Prompt.ask", side_effect=["e", "q"]), \
+         patch("nowcastingcli.main.render_dashboard") as mock_render:
+        run()
+    mock_render.assert_not_called()
+
+
+def test_run_edit_flow_updates_existing_observation():
+    """Full run: one observation added, then edited via 'e', then 'q' exits.
+
+    Prompt sequence:
+      "1013.25", "20.0", "50.0", "100.0"  → first observation
+      "e"                                  → enter edit mode
+      "1", "2", "25.0"                     → edit obs 1, field temperature, new value
+      "q"                                  → quit
+
+    Run: pytest tests/test_main.py::test_run_edit_flow_updates_existing_observation -v
+    """
+    prompts = ["1013.25", "20.0", "50.0", "100.0", "e", "1", "2", "25.0", "q"]
+    with patch("nowcastingcli.main.Prompt.ask", side_effect=prompts), \
+         patch("nowcastingcli.main.render_dashboard") as mock_render:
+        run()
+    final_obs = mock_render.call_args[0][0]
+    assert final_obs[0].temperature == pytest.approx(25.0)

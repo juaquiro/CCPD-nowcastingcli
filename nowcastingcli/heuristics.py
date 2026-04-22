@@ -5,6 +5,10 @@ WORSENING = "worsening"
 STABLE    = "stable"
 IMPROVING = "improving"
 
+PRESSURE_FALL_THRESHOLD  = -1.0   # hPa — rapid drop signals worsening conditions
+HIGH_HUMIDITY_THRESHOLD  = 85.0   # %   — high humidity signals worsening conditions
+PRESSURE_RISE_THRESHOLD  =  1.0   # hPa — sustained rise signals improving conditions
+
 
 def assess_conditions(observations: list[Observation]) -> tuple[str, str]:
     """
@@ -19,15 +23,15 @@ def assess_conditions(observations: list[Observation]) -> tuple[str, str]:
 
     pressure_delta = current.pressure_qnh - previous.pressure_qnh  # hPa
 
-    if pressure_delta < -1.0 or current.humidity > 85:  # pressure_qnh: hPa; humidity: %
+    if pressure_delta < PRESSURE_FALL_THRESHOLD or current.humidity > HIGH_HUMIDITY_THRESHOLD:
         reason_parts = []
-        if pressure_delta < -1.0:
+        if pressure_delta < PRESSURE_FALL_THRESHOLD:
             reason_parts.append(f"Rapid pressure fall ({pressure_delta:+.1f} hPa)")
-        if current.humidity > 85:
+        if current.humidity > HIGH_HUMIDITY_THRESHOLD:
             reason_parts.append(f"High humidity ({current.humidity:.0f}%)")
         return WORSENING, " + ".join(reason_parts)
 
-    if pressure_delta > 1.0 and current.humidity < previous.humidity:  # pressure_qnh: hPa; humidity: %
+    if pressure_delta > PRESSURE_RISE_THRESHOLD and current.humidity < previous.humidity:
         return IMPROVING, f"Pressure rising ({pressure_delta:+.1f} hPa), humidity falling"
 
     return STABLE, f"Pressure change within normal range ({pressure_delta:+.1f} hPa)"

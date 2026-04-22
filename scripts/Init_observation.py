@@ -1,6 +1,7 @@
 # dev_shell.py
 from datetime import datetime
 from nowcastingcli.models import Observation
+from nowcastingcli.display import format_observation
 
 obs = Observation(
     timestamp    = datetime.now(),
@@ -11,4 +12,4 @@ obs = Observation(
     altitude     = 667.0
 )
 
-print(obs)
+print(format_observation(obs))
