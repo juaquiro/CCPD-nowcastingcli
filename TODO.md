@@ -29,6 +29,11 @@
 - [x] **#8** **Move `units` dict out of `Observation` to a module-level constant**
   The dict is identical for every instance — no need to allocate it per `Observation`.
 
+- [x] **#10** **Remove `units` instance field from `Observation`**
+  `default_factory=OBSERVATION_UNITS.copy` still allocates a new dict per instance.
+  Remove the `units` field entirely and have `format_observation` in `display.py`
+  reference `OBSERVATION_UNITS` directly.
+
 - [x] **#9** **Allow deleting observations once recorded**
   After the dashboard renders, let the user select a past observation by index and
   correct any field. Re-derive `pressure_qnh` after edits and re-render.

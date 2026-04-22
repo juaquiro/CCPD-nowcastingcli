@@ -265,11 +265,3 @@ def test_format_observation_contains_values():
     assert "250.0" in text
 
 
-def test_format_observation_custom_units():
-    """Custom units dict is reflected in the output.
-
-    Run: pytest tests/test_display.py::test_format_observation_custom_units -v
-    """
-    obs = _obs()
-    obs.units["temperature"] = "K"
-    assert "K" in format_observation(obs)

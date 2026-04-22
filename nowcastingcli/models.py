@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 
 
@@ -19,7 +19,6 @@ class Observation:
     temperature: float
     humidity: float
     altitude: float
-    units: dict = field(default_factory=OBSERVATION_UNITS.copy)
 
     def __post_init__(self):
         if not (0 <= self.humidity <= 100):
