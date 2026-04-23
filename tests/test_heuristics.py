@@ -6,6 +6,7 @@ from nowcastingcli.models import Observation
 from nowcastingcli.heuristics import assess_conditions, WORSENING, STABLE, IMPROVING
 
 
+
 # --- Fixture: factory function for Observations ---
 
 def make_obs(pressure_qnh: float, humidity: float, temperature: float = 15.0, minutes_ago: int = 0) -> Observation:

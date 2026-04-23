@@ -1,3 +1,8 @@
+# setup_logging() is called in main.py before this module is imported — handlers already registered.
+import logging
+logger = logging.getLogger(__name__)
+
+
 # ISA (International Standard Atmosphere) constants used in the barometric formula.
 
 # Temperature lapse rate: the rate at which temperature drops with altitude
@@ -31,8 +36,10 @@ def normalize_pressure(pressure_hpa: float, altitude_m: float, temperature_c: fl
         ValueError: if pressure_hpa <= 0 or altitude_m > MAX_ALTITUDE_M (5000 m).
     """
     if pressure_hpa <= 0:
+        logger.error("Invalid pressure: %.2f hPa", pressure_hpa)
         raise ValueError(f"pressure_hpa must be positive, got {pressure_hpa}")
     if altitude_m > MAX_ALTITUDE_M:
+        logger.error("Altitude exceeds model limit: %.2f m", altitude_m)
         raise ValueError(
             f"altitude_m {altitude_m} exceeds model limit of {MAX_ALTITUDE_M} m"
         )

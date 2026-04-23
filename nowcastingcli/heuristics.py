@@ -1,5 +1,10 @@
 from .models import Observation
 
+# setup_logging() is called in main.py before this module is imported — handlers already registered.
+import logging
+logger = logging.getLogger(__name__)
+
+
 
 WORSENING = "worsening"
 STABLE    = "stable"
@@ -16,7 +21,9 @@ def assess_conditions(observations: list[Observation]) -> tuple[str, str]:
     Requires at least 2 observations; returns STABLE with a note if insufficient.
     """
     if len(observations) < 2:
-        return STABLE, "Insufficient data — enter at least one more reading"
+        verdict = STABLE
+        reason  = "Insufficient data — enter at least one more reading"
+        return (verdict, reason)
 
     current  = observations[-1]
     previous = observations[-2]
@@ -29,9 +36,15 @@ def assess_conditions(observations: list[Observation]) -> tuple[str, str]:
             reason_parts.append(f"Rapid pressure fall ({pressure_delta:+.1f} hPa)")
         if current.humidity > HIGH_HUMIDITY_THRESHOLD:
             reason_parts.append(f"High humidity ({current.humidity:.0f}%)")
-        return WORSENING, " + ".join(reason_parts)
+        verdict = WORSENING
+        reason  = " + ".join(reason_parts)
+        return (verdict, reason)
 
     if pressure_delta > PRESSURE_RISE_THRESHOLD and current.humidity < previous.humidity:
-        return IMPROVING, f"Pressure rising ({pressure_delta:+.1f} hPa), humidity falling"
+        verdict = IMPROVING
+        reason  = f"Pressure rising ({pressure_delta:+.1f} hPa), humidity falling"
+        return (verdict, reason)
 
-    return STABLE, f"Pressure change within normal range ({pressure_delta:+.1f} hPa)"
+    verdict = STABLE
+    reason  = f"Pressure change within normal range ({pressure_delta:+.1f} hPa)"
+    return (verdict, reason)

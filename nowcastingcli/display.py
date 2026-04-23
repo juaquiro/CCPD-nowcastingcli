@@ -8,6 +8,10 @@ from rich import box
 from .models import Observation, OBSERVATION_UNITS
 from .heuristics import WORSENING, IMPROVING, STABLE, assess_conditions
 
+# setup_logging() is called in main.py before this module is imported — handlers already registered.
+import logging
+logger = logging.getLogger(__name__)
+
 console = Console()
 
 VERDICT_STYLE = {
@@ -17,6 +21,8 @@ VERDICT_STYLE = {
 }
 
 SPARKLINE_CHARS = "▁▂▃▄▅▆▇█"
+
+
 
 
 def format_observation(obs: Observation) -> str:
@@ -76,6 +82,13 @@ def render_dashboard(observations: list[Observation]) -> None:
 
     verdict, reason = assess_conditions(observations)
     label, style    = VERDICT_STYLE[verdict]
+
+    # get the latest observation for logging context
+    obs = observations[-1]
+    logger.info("Observation recorded",
+            extra={"pressure_qnh": obs.pressure_qnh,
+                   "verdict": verdict,
+                   "reason": reason})
 
     pressures = [o.pressure_qnh for o in observations]
     spark     = sparkline(pressures)

@@ -7,10 +7,10 @@ name = "nowcastingcli"
 version = "0.1.0"
 description = "Terminal weather nowcasting dashboard"
 requires-python = ">=3.11"
-dependencies = ["rich>=13.0"]
+dependencies = ["rich>=13.0", "python-json-logger", "pytest", "pytest-cov", "setuptools", "wheel"]
 
 [project.scripts]
-nowcastingcli = "nowcastingcli.main:run"
+nowcastingcli = "nowcastingcli.main:cli"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -10,11 +10,12 @@ A terminal-based weather nowcasting CLI built with Python and [Rich](https://git
 NOWCASTINGCLI/
 ├── nowcastingcli/              # installable package
 │   ├── __init__.py             # package marker
-│   ├── main.py                 # CLI entry point — run() and get_float()
+│   ├── main.py                 # CLI entry point — run(), get_float(), edit_observation()
 │   ├── models.py               # Observation dataclass
 │   ├── physics.py              # barometric QNH normalisation
 │   ├── heuristics.py           # worsening / stable / improving logic
-│   └── display.py              # Rich dashboard, sparkline, trend arrows
+│   ├── display.py              # Rich dashboard, sparkline, trend arrows
+│   └── logging_config.py       # dictConfig setup — rotating JSON file + stderr handlers
 ├── tests/                      # pytest test suite
 │   ├── __init__.py
 │   ├── test_display.py         # tests for sparkline, trend_arrow, render_dashboard
@@ -26,11 +27,13 @@ NOWCASTINGCLI/
 │   ├── Init_observation.py     # quick manual smoke-test for Observation
 │   ├── sync_env.bat            # sync conda environment between machines
 │   └── update_lock.bat         # regenerate environment.lock.yml
+├── logs/                       # auto-created at runtime — rotating JSON log files
 ├── .vscode/
 │   ├── launch.json             # pytest debug configuration
 │   └── settings.json
 ├── environment.lock.yml        # pinned conda environment snapshot
 ├── pyproject.toml              # build, dependencies, and pytest config
+├── TODO.md                     # pending improvements
 ├── README.md
 ├── COURSE_NOTES.md
 └── README_CONDA_ENV_SYNC.md    # guide for syncing conda envs across machines
@@ -161,6 +164,77 @@ After Reading 3 the dashboard panel should show:
 The worsening verdict is triggered because:
 - QNH pressure dropped more than 1 hPa between consecutive readings **and/or**
 - humidity exceeded 85 % (Reading 3 = 86 %)
+
+---
+
+## Input Modes
+
+### Interactive mode (default)
+
+```bash
+nowcastingcli
+```
+
+The CLI prompts for each field one at a time. Type `q` at any pressure prompt to quit, or `e` to edit a past reading.
+
+### File input mode (`--input`)
+
+```bash
+nowcastingcli --input path/to/observations.csv
+```
+
+Reads observations from a CSV file and runs the full session non-interactively. Useful for automated testing, replaying scenarios, and log verification.
+
+### CSV file format
+
+The file must have exactly these four columns (order matters, header required):
+
+| Column | Unit | Valid range |
+|---|---|---|
+| `pressure_hpa` | hPa | 0.1 – 1100.0 |
+| `temperature_c` | °C | -60 – 60 |
+| `humidity_pct` | % | 0 – 100 |
+| `altitude_m` | m | -500 – 5000 |
+
+Example — `scripts/test_observations.csv`:
+
+```csv
+pressure_hpa,temperature_c,humidity_pct,altitude_m
+1013,18,60,340
+1011.5,17,72,340
+1009.8,17,86,340
+```
+
+Validation errors are reported with the row number and field name before the session starts:
+
+```
+Input file error: Row 3: temperature = 99.0 out of range [-60, 60]
+```
+
+### Logging smoke-test scripts
+
+Both scripts run `test_observations.csv` through the CLI and pretty-print the JSON log to verify that `DEBUG`, `INFO`, and `WARNING` events were written in the correct order.
+
+**Bash (Git Bash / Linux / macOS):**
+
+```bash
+bash scripts/test_logging.sh
+```
+
+**Windows CMD:**
+
+```bat
+scripts\test_logging.bat
+```
+
+Expected log events per observation cycle, in order:
+
+| Event | Level | Source |
+|---|---|---|
+| Session start | `INFO` | `main` |
+| Raw sensor input | `DEBUG` | `main` |
+| Observation recorded | `INFO` | `display` |
+| Verdict change (when it occurs) | `WARNING` | `main` |
 
 ---
 
@@ -386,6 +460,43 @@ For a typical mountain station at 1500 m, 15 °C, 850 hPa, the correction factor
 - **Precision aviation/meteorology**: ICAO QNH procedures tolerate this approximation, but scientific reanalysis systems use more sophisticated vertical integration.
 
 For the intended use case — surface weather station normalization below 5000 m in mid-latitudes — the error is typically < 1–2 hPa, which is within observational uncertainty.
+
+---
+
+## Logging
+
+### Strategy
+
+The app uses Python's standard `logging` module, configured once at startup via `logging_config.py` using `dictConfig`. Two handlers run in parallel:
+
+| Handler | Destination | Level | Format |
+|---------|-------------|-------|--------|
+| `console` | `stderr` | `WARNING` and above | Plain text with timestamp |
+| `file` | `logs/nowcastingcli.log` | `DEBUG` and above | JSON (via `python-json-logger`) |
+
+The `logs/` directory is created automatically on first run. The file handler rotates at 1 MB and keeps 3 backups.
+
+### Log levels in use
+
+| Level | Where | What is logged |
+|-------|-------|----------------|
+| `DEBUG` | `main.py` | Raw sensor input per observation (pressure, temperature, humidity, altitude) |
+| `INFO` | `display.py` | Each observation recorded, with `pressure_qnh` and the current verdict |
+| `WARNING` | `main.py` | Verdict transitions (e.g. `stable → worsening`) |
+| `INFO` | `main.py` | Session start |
+
+### Implementation
+
+`logging_config.py` was built with the following design goals:
+
+- Use the `dictConfig` pattern to declare the full logging topology in one place as a plain dictionary, keeping configuration separate from application code.
+- A `RotatingFileHandler` writes JSON-formatted logs to `logs/nowcastingcli.log` at `DEBUG` level, capturing all events for post-session analysis.
+- A `StreamHandler` to `stderr` is set to `WARNING` only, so the terminal stays clean during normal operation.
+- `setup_logging()` creates the `logs/` directory if it does not exist before applying the config, avoiding a `FileNotFoundError` on first run.
+
+### Wiring
+
+`setup_logging()` is called once in `main.py` before any `getLogger()` call. Other modules (`display.py`, `heuristics.py`) obtain a logger with `logging.getLogger(__name__)` and rely on the handlers already being registered by the time they are imported.
 
 ---
 

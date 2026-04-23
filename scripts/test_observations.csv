@@ -1,0 +1,4 @@
+pressure_hpa,temperature_c,humidity_pct,altitude_m
+1013,18,60,340
+1011.5,17,72,340
+1009.8,17,86,340
