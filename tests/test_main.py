@@ -1,8 +1,9 @@
 # tests/test_main.py
 # Run all tests in this file: pytest tests/test_main.py -v
+import sys
 import pytest
 from unittest.mock import patch
-from nowcastingcli.main import get_float, run, edit_observation
+from nowcastingcli.main import get_float, run, edit_observation, _parse_csv, cli
 from nowcastingcli.models import Observation
 from datetime import datetime
 
@@ -347,3 +348,154 @@ def test_run_edit_flow_updates_existing_observation():
         run()
     final_obs = mock_render.call_args[0][0]
     assert final_obs[0].temperature == pytest.approx(25.0)
+
+
+# ---------------------------------------------------------------------------
+# edit_observation — field 4 (altitude)
+# ---------------------------------------------------------------------------
+
+def test_edit_observation_updates_altitude():
+    """Field 4 (altitude) update must change altitude and re-derive pressure_qnh.
+
+    Run: pytest tests/test_main.py::test_edit_observation_updates_altitude -v
+    """
+    obs = _make_obs(altitude=100.0)
+    original_qnh = obs.pressure_qnh
+    with patch("nowcastingcli.main.Prompt.ask", side_effect=["1", "4", "500.0"]), \
+         patch("nowcastingcli.main.render_dashboard"):
+        edit_observation([obs])
+    assert obs.altitude == pytest.approx(500.0)
+    assert obs.pressure_qnh != pytest.approx(original_qnh)
+
+
+# ---------------------------------------------------------------------------
+# _parse_csv
+# ---------------------------------------------------------------------------
+# Uses pytest's tmp_path fixture to write real CSV files to a temp directory.
+# tmp_path is a pathlib.Path; _parse_csv expects a str, so we cast with str().
+# ---------------------------------------------------------------------------
+
+def test_parse_csv_valid_file(tmp_path):
+    """Valid CSV returns a list of _InputRow with correct field values.
+
+    Run: pytest tests/test_main.py::test_parse_csv_valid_file -v
+    """
+    f = tmp_path / "obs.csv"
+    f.write_text("pressure_hpa,temperature_c,humidity_pct,altitude_m\n1013,18,60,340\n")
+    rows = _parse_csv(str(f))
+    assert len(rows) == 1
+    assert rows[0].pressure    == pytest.approx(1013.0)
+    assert rows[0].temperature == pytest.approx(18.0)
+    assert rows[0].humidity    == pytest.approx(60.0)
+    assert rows[0].altitude    == pytest.approx(340.0)
+
+
+def test_parse_csv_missing_column(tmp_path):
+    """CSV with missing columns raises ValueError naming the absent columns.
+
+    Run: pytest tests/test_main.py::test_parse_csv_missing_column -v
+    """
+    f = tmp_path / "bad.csv"
+    f.write_text("pressure_hpa,temperature_c\n1013,18\n")
+    with pytest.raises(ValueError, match="missing columns"):
+        _parse_csv(str(f))
+
+
+def test_parse_csv_non_numeric_value(tmp_path):
+    """A non-numeric cell raises ValueError that includes the row number.
+
+    Run: pytest tests/test_main.py::test_parse_csv_non_numeric_value -v
+    """
+    f = tmp_path / "bad.csv"
+    f.write_text("pressure_hpa,temperature_c,humidity_pct,altitude_m\n1013,abc,60,340\n")
+    with pytest.raises(ValueError, match="Row 2"):
+        _parse_csv(str(f))
+
+
+def test_parse_csv_pressure_out_of_range(tmp_path):
+    """A pressure value outside [0.1, 1100.0] raises ValueError.
+
+    Run: pytest tests/test_main.py::test_parse_csv_pressure_out_of_range -v
+    """
+    f = tmp_path / "bad.csv"
+    f.write_text("pressure_hpa,temperature_c,humidity_pct,altitude_m\n9999,18,60,340\n")
+    with pytest.raises(ValueError, match="pressure"):
+        _parse_csv(str(f))
+
+
+def test_parse_csv_empty_file(tmp_path):
+    """A CSV with only a header row raises ValueError about no data rows.
+
+    Run: pytest tests/test_main.py::test_parse_csv_empty_file -v
+    """
+    f = tmp_path / "empty.csv"
+    f.write_text("pressure_hpa,temperature_c,humidity_pct,altitude_m\n")
+    with pytest.raises(ValueError, match="no data rows"):
+        _parse_csv(str(f))
+
+
+# ---------------------------------------------------------------------------
+# run() — file input mode
+# ---------------------------------------------------------------------------
+
+def test_run_with_valid_csv(tmp_path):
+    """run(input_file=...) processes all CSV rows and calls render_dashboard once per row.
+
+    Run: pytest tests/test_main.py::test_run_with_valid_csv -v
+    """
+    f = tmp_path / "obs.csv"
+    f.write_text(
+        "pressure_hpa,temperature_c,humidity_pct,altitude_m\n"
+        "1013,18,60,340\n"
+        "1011.5,17,72,340\n"
+    )
+    with patch("nowcastingcli.main.render_dashboard") as mock_render:
+        run(input_file=str(f))
+    assert mock_render.call_count == 2
+    final_obs = mock_render.call_args[0][0]
+    assert len(final_obs) == 2
+    assert final_obs[0].pressure_raw == pytest.approx(1013.0)
+
+
+def test_run_with_invalid_csv_shows_error(tmp_path):
+    """run(input_file=...) with a bad CSV prints an error and never renders.
+
+    Run: pytest tests/test_main.py::test_run_with_invalid_csv_shows_error -v
+    """
+    f = tmp_path / "bad.csv"
+    f.write_text("wrong_column\n1013\n")
+    with patch("nowcastingcli.main.render_dashboard") as mock_render:
+        run(input_file=str(f))
+    mock_render.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# cli()
+# ---------------------------------------------------------------------------
+# monkeypatch.setattr replaces sys.argv for the duration of the test only.
+# We patch run() itself so cli() is tested in isolation — we only verify that
+# it parses argv correctly and passes the right argument to run().
+# ---------------------------------------------------------------------------
+
+def test_cli_no_input_calls_run_with_none(monkeypatch):
+    """cli() with no --input flag calls run(input_file=None).
+
+    Run: pytest tests/test_main.py::test_cli_no_input_calls_run_with_none -v
+    """
+    monkeypatch.setattr(sys, "argv", ["nowcastingcli"])
+    with patch("nowcastingcli.main.run") as mock_run:
+        cli()
+    mock_run.assert_called_once_with(input_file=None)
+
+
+def test_cli_with_input_calls_run(tmp_path, monkeypatch):
+    """cli() with --input FILE passes the path to run(input_file=FILE).
+
+    Run: pytest tests/test_main.py::test_cli_with_input_calls_run -v
+    """
+    f = tmp_path / "obs.csv"
+    f.write_text("pressure_hpa,temperature_c,humidity_pct,altitude_m\n1013,18,60,340\n")
+    monkeypatch.setattr(sys, "argv", ["nowcastingcli", "--input", str(f)])
+    with patch("nowcastingcli.main.run") as mock_run:
+        cli()
+    mock_run.assert_called_once_with(input_file=str(f))
