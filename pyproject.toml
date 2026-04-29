@@ -18,3 +18,10 @@ where = ["."]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=nowcastingcli --cov-fail-under=80"
+
+[project.optional-dependencies]
+docs = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+]

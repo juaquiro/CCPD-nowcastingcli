@@ -26,7 +26,15 @@ SPARKLINE_CHARS = "▁▂▃▄▅▆▇█"
 
 
 def format_observation(obs: Observation) -> str:
-    """Return a human-readable multi-line string for a single Observation."""
+    """Format a single Observation as an indented, human-readable multi-line string.
+
+    Args:
+        obs: The Observation to format.
+
+    Returns:
+        A multi-line string with one field per line, each annotated with its unit
+        from OBSERVATION_UNITS.
+    """
     u = OBSERVATION_UNITS
     return (
         f"Observation @ {obs.timestamp}\n"
@@ -39,6 +47,18 @@ def format_observation(obs: Observation) -> str:
 
 
 def sparkline(values: list[float]) -> str:
+    """Render a sequence of floats as a Unicode block-character sparkline.
+
+    Maps the min–max range of values onto the eight block characters
+    (▁▂▃▄▅▆▇█), so relative trends are visible at a glance.
+
+    Args:
+        values: Ordered sequence of numeric values to visualise.
+
+    Returns:
+        A string of Unicode block characters proportional to each value's
+        position in the min–max range. Returns an empty string if values is empty.
+    """
     if not values:
         return ""
     lo, hi = min(values), max(values)
@@ -50,6 +70,20 @@ def sparkline(values: list[float]) -> str:
 
 
 def trend_arrow(current: float, previous: float | None, threshold: float = 0.1) -> str:
+    """Return a Unicode arrow indicating the direction of change between two values.
+
+    Args:
+        current: The latest value.
+        previous: The preceding value, or None if no previous reading exists.
+        threshold: Minimum absolute delta required to show an up or down arrow.
+            Changes within ±threshold are shown as a right arrow (→). Defaults to 0.1.
+
+    Returns:
+        "↑" if current exceeds previous by more than threshold,
+        "↓" if current is below previous by more than threshold,
+        "→" if the change is within ±threshold,
+        " " (space) if previous is None.
+    """
     if previous is None:
         return " "
     delta = current - previous
@@ -61,6 +95,20 @@ def trend_arrow(current: float, previous: float | None, threshold: float = 0.1) 
 
 
 def render_dashboard(observations: list[Observation]) -> None:
+    """Clear the terminal and render the full NowcastingCLI dashboard.
+
+    Displays a Rich table with one row per observation (time, raw pressure,
+    QNH pressure with trend arrow, temperature, relative humidity, and altitude),
+    followed by a panel showing the QNH sparkline, the current nowcast verdict,
+    and the reason string produced by assess_conditions().
+
+    Also emits an INFO log entry for the latest observation with pressure_qnh,
+    verdict, and reason as structured fields.
+
+    Args:
+        observations: Ordered list of Observation objects, earliest first.
+            Must contain at least one entry.
+    """
     console.clear()
 
     table = Table(box=box.SIMPLE_HEAD, show_header=True, header_style="bold cyan")

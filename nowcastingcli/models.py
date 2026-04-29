@@ -13,6 +13,22 @@ OBSERVATION_UNITS: dict[str, str] = {
 
 @dataclass
 class Observation:
+    """A single weather observation recorded at a station.
+
+    Attributes:
+        timestamp: Date and time the observation was recorded.
+        pressure_raw: Raw station pressure as measured by the sensor, in hPa.
+            Reflects actual atmospheric pressure at the station's altitude.
+        pressure_qnh: Station pressure normalised to sea level (QNH), in hPa.
+            Derived from pressure_raw via the barometric formula in physics.py.
+        temperature: Ambient air temperature at the station, in °C.
+        humidity: Relative humidity at the station, in %. Must be in [0, 100].
+        altitude: GPS altitude of the station above sea level, in m.
+
+    Raises:
+        ValueError: If humidity is outside [0, 100] or pressure_raw <= 0.
+    """
+
     timestamp: datetime
     pressure_raw: float      # as measured
     pressure_qnh: float      # normalized to sea level

@@ -16,9 +16,24 @@ PRESSURE_RISE_THRESHOLD  =  1.0   # hPa — sustained rise signals improving con
 
 
 def assess_conditions(observations: list[Observation]) -> tuple[str, str]:
-    """
-    Returns (verdict, reason) based on the last two observations.
-    Requires at least 2 observations; returns STABLE with a note if insufficient.
+    """Derive a nowcast verdict and human-readable reason from recent observations.
+
+    Compares the last two observations to detect rapid pressure falls or high
+    humidity (WORSENING), sustained pressure rises with falling humidity
+    (IMPROVING), or neither (STABLE). Decision thresholds are defined by the
+    module-level constants PRESSURE_FALL_THRESHOLD, PRESSURE_RISE_THRESHOLD,
+    and HIGH_HUMIDITY_THRESHOLD.
+
+    Args:
+        observations: Ordered list of Observation objects, earliest first.
+            At least two entries are required for a meaningful verdict.
+
+    Returns:
+        A tuple of (verdict, reason) where:
+            - verdict is one of the module constants WORSENING, STABLE, or IMPROVING.
+            - reason is a human-readable string explaining the verdict.
+        If fewer than two observations are provided, returns
+        (STABLE, "Insufficient data — enter at least one more reading").
     """
     if len(observations) < 2:
         verdict = STABLE

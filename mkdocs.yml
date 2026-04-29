@@ -1,0 +1,32 @@
+site_name: NowcastingCLI
+site_description: Terminal-based weather nowcasting dashboard
+repo_url: https://github.com/juaquiro/CCPD-nowcastingcli
+repo_name: CCPD-nowcastingcli
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - toc.integrate
+  palette:
+    scheme: slate          # dark mode — fits a CLI tool
+    primary: teal
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+
+nav:
+  - Home: index.md
+  - Usage: usage.md
+  - Architecture: architecture.md
+  - API Reference:
+    - models: api/models.md
+    - physics: api/physics.md
+    - heuristics: api/heuristics.md
