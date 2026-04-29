@@ -37,5 +37,6 @@ dependencies:
       - pygments==2.20.0
       - pytest==9.0.3
       - pytest-cov==7.1.0
+      - python-json-logger==4.1.0
       - rich==15.0.0
 prefix: C:\Users\juaqu\.conda\envs\nowcastingcli
