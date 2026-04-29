@@ -65,7 +65,8 @@ def render_dashboard(observations: list[Observation]) -> None:
 
     table = Table(box=box.SIMPLE_HEAD, show_header=True, header_style="bold cyan")
     table.add_column("Time",          style="dim",     width=8)
-    table.add_column("Pressure(QNH)", justify="right", width=16)
+    table.add_column("Raw (hPa)",     justify="right", width=12)
+    table.add_column("QNH (hPa)",     justify="right", width=14)
     table.add_column("Temp",          justify="right", width=8)
     table.add_column("RH",            justify="right", width=8)
     table.add_column("Alt",           justify="right", width=8)
@@ -74,7 +75,8 @@ def render_dashboard(observations: list[Observation]) -> None:
         prev = observations[i - 1] if i > 0 else None
         table.add_row(
             obs.timestamp.strftime("%H:%M"),
-            f"{obs.pressure_qnh:.1f} hPa {trend_arrow(obs.pressure_qnh, prev.pressure_qnh if prev else None)}",
+            f"{obs.pressure_raw:.1f}",
+            f"{obs.pressure_qnh:.1f} {trend_arrow(obs.pressure_qnh, prev.pressure_qnh if prev else None)}",
             f"{obs.temperature:.0f}°C {trend_arrow(obs.temperature, prev.temperature if prev else None)}",
             f"{obs.humidity:.0f}% {trend_arrow(obs.humidity, prev.humidity if prev else None)}",
             f"{obs.altitude:.0f}m",
