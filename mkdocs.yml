@@ -30,3 +30,4 @@ nav:
     - models: api/models.md
     - physics: api/physics.md
     - heuristics: api/heuristics.md
+    - display: api/display.md

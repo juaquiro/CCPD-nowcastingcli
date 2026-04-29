@@ -1,0 +1,3 @@
+# Physics
+
+::: nowcastingcli.physics

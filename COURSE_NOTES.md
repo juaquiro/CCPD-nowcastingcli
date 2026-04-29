@@ -2,7 +2,7 @@
 
 > **Course:** Claude Code for Python Developers: Hands-On Agentic Coding
 > **Repo:** CCPD-nowcastingcli
-> **Last updated:** 2026-04-22
+> **Last updated:** 2026-04-29
 
 ---
 
@@ -50,6 +50,17 @@
   - [Claude Code Agentic Task](#claude-code-agentic-task)
   - [Verifying Output](#verifying-output)
   - [Exercise Checklist](#exercise-checklist-3)
+- [Part 5 — Documentation: MkDocs for NowcastingCLI](#part-5--documentation-mkdocs-for-nowcastingcli)
+  - [MkDocs vs Sphinx](#mkdocs-vs-sphinx)
+  - [Install](#install-1)
+  - [Project Structure](#project-structure-1)
+  - [mkdocs.yml](#mkdocsyml)
+  - [Docstrings with Claude Code](#docstrings-with-claude-code)
+  - [API Reference Pages](#api-reference-pages)
+  - [Content Pages](#content-pages)
+  - [Live Preview and Build](#live-preview-and-build)
+  - [GitHub Pages Deployment](#github-pages-deployment)
+  - [Exercise Checklist](#exercise-checklist-4)
 
 ---
 
@@ -1274,6 +1285,342 @@ cat logs/nowcastingcli.log | jq '{t: .asctime, level: .levelname, msg: .message}
 - [ ] Run the app, enter 3 observations, inspect `logs/nowcastingcli.log` with `jq` or `python -m json.tool`
 - [ ] Run `pytest` — all green
 - [ ] Commit: `git commit -m "feat: add structured JSON logging with RotatingFileHandler"`
+
+---
+
+---
+
+## Part 5 — Documentation: MkDocs for NowcastingCLI
+
+### MkDocs vs Sphinx
+
+**MkDocs** is Markdown-native, has a single `mkdocs.yml` config file, and with
+the Material theme produces professional output immediately. The `mkdocstrings`
+plugin handles auto-generated API reference from docstrings.
+
+**Sphinx** is the traditional Python doc tool — reStructuredText by default,
+steeper config curve, better for multi-package cross-references and ReadTheDocs
+publishing at scale.
+
+**Decision for NowcastingCLI:** MkDocs. You already write Markdown, the project
+is a single package, and the setup overhead is minimal.
+
+**nDoc analogy:** `mkdocstrings` is the equivalent of nDoc's XML comment
+extraction. The `:::` directive points at a Python dotted path the same way
+nDoc points at an assembly. `mkdocs.yml` is your nDoc project file.
+`mkdocs serve` = local preview. `mkdocs build` = doc generation step in pipeline.
+
+---
+
+### Install
+
+```bash
+pip install mkdocs mkdocs-material mkdocstrings[python]
+```
+
+`mkdocstrings[python]` pulls in `griffe` — an AST-based docstring parser that
+reads source without importing it, so no side effects during doc builds.
+
+Add to `pyproject.toml`:
+
+```toml
+[project.optional-dependencies]
+docs = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+]
+```
+
+Install the group with:
+
+```bash
+pip install -e ".[docs]"
+```
+
+---
+
+### Project Structure
+
+Scaffold with:
+
+```bash
+mkdocs new .   # creates docs/index.md and mkdocs.yml
+```
+
+Target layout:
+
+```
+nowcastingcli/
+├── docs/
+│   ├── index.md          # Landing page / overview
+│   ├── usage.md          # CLI usage guide
+│   ├── architecture.md   # Module map, data flow
+│   └── api/
+│       ├── models.md
+│       ├── physics.md
+│       └── heuristics.md
+├── mkdocs.yml
+├── site/                 # Build output — gitignored
+```
+
+Add `site/` to `.gitignore`:
+
+```bash
+echo "site/" >> .gitignore
+```
+
+---
+
+### mkdocs.yml
+
+```yaml
+site_name: NowcastingCLI
+site_description: Terminal-based weather nowcasting dashboard
+repo_url: https://github.com/<your-username>/CCPD-nowcastingcli
+repo_name: CCPD-nowcastingcli
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - toc.integrate
+  palette:
+    scheme: slate          # dark mode — fits a CLI tool
+    primary: teal
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+
+nav:
+  - Home: index.md
+  - Usage: usage.md
+  - Architecture: architecture.md
+  - API Reference:
+    - models: api/models.md
+    - physics: api/physics.md
+    - heuristics: api/heuristics.md
+```
+
+`docstring_style: google` — Google-style docstrings (Args / Returns / Raises
+sections). Clearest style for scientific code. NumPy style is also supported.
+
+---
+
+### Docstrings with Claude Code
+
+Before `mkdocstrings` can render anything useful, the source needs real
+docstrings. Delegate this to Claude Code:
+
+```
+Add Google-style docstrings to all public functions and classes in
+physics.py, heuristics.py, and models.py.
+
+Rules:
+- Include Args, Returns, and Raises sections where applicable
+- For physics.py: document the barometric formula in the docstring body,
+  mention units for every parameter
+- For models.py: document the Observation dataclass fields
+- Do not change any logic, only add docstrings
+```
+
+**Review checklist for Claude Code's output:**
+
+- Units documented for every parameter in `physics.py`
+- `Raises: ValueError` documented where guards exist
+- Dataclass fields described in `models.py`
+- No logic changes — diff should be docstrings only
+
+**Example — `normalize_pressure` target output:**
+
+```python
+def normalize_pressure(raw_pressure: float, altitude: float, temperature: float) -> float:
+    """Normalize raw station pressure to QNH (sea-level equivalent).
+
+    Applies the international barometric formula to correct for altitude,
+    allowing pressure readings from different elevations to be compared
+    on a common baseline.
+
+    Args:
+        raw_pressure: Station pressure in hPa (millibars). Must be > 0.
+        altitude: Station altitude above mean sea level in metres. Must be >= 0.
+        temperature: Ambient temperature in degrees Celsius.
+
+    Returns:
+        QNH pressure in hPa, normalized to sea level.
+
+    Raises:
+        ValueError: If raw_pressure <= 0 or altitude < 0.
+    """
+```
+
+Commit after review:
+
+```bash
+git add nowcastingcli/
+git commit -m "docs: add Google-style docstrings to physics, heuristics, models"
+```
+
+---
+
+### API Reference Pages
+
+These pages are intentionally thin — they just invoke the `mkdocstrings`
+directive. The plugin resolves the Python dotted path via `griffe` and renders
+all public members with their docstrings automatically.
+
+**`docs/api/models.md`**
+
+```markdown
+# Models
+
+::: nowcastingcli.models
+```
+
+**`docs/api/physics.md`**
+
+```markdown
+# Physics
+
+::: nowcastingcli.physics
+```
+
+**`docs/api/heuristics.md`**
+
+```markdown
+# Heuristics
+
+::: nowcastingcli.heuristics
+```
+
+---
+
+### Content Pages
+
+**`docs/index.md`** — landing page, analogous to README:
+
+```markdown
+# NowcastingCLI
+
+Terminal-based weather nowcasting dashboard.
+
+Accepts periodic pressure, temperature, humidity, and altitude readings,
+normalises pressure to QNH, classifies conditions as **IMPROVING / STABLE / WORSENING**,
+and displays a live `rich` dashboard.
+
+## Quick start
+
+​```bash
+conda activate nowcastingcli
+python -m nowcastingcli
+​```
+```
+
+**`docs/usage.md`** — document the input loop, valid input ranges, what the
+dashboard displays, and how to exit cleanly.
+
+**`docs/architecture.md`** — module map and data flow. Template:
+
+```markdown
+# Architecture
+
+## Module map
+
+| Module | Responsibility |
+|--------|----------------|
+| `models.py` | `Observation` dataclass — pure data, no logic |
+| `physics.py` | Barometric normalisation (`normalize_pressure`) |
+| `heuristics.py` | Condition classification (`assess_conditions`) |
+| `display.py` | `rich` dashboard rendering |
+| `main.py` | Input loop, orchestration, logging init |
+| `logging_config.py` | `dictConfig` setup, `RotatingFileHandler` |
+
+## Data flow
+
+​```
+User input
+    │
+    ▼
+Observation (models.py)
+    │
+    ├──► normalize_pressure() → QNH       (physics.py)
+    │
+    └──► assess_conditions()  → verdict   (heuristics.py)
+                │
+                ▼
+           display.py (rich Panel)
+                │
+                ▼
+           logging_config.py → logs/
+​```
+```
+
+---
+
+### Live Preview and Build
+
+**Live preview** — hot-reloads on every file save:
+
+```bash
+mkdocs serve
+# opens at http://127.0.0.1:8000
+```
+
+Edit any `.md` file or source docstring and the browser updates immediately.
+Check the terminal for `WARNING` lines — these indicate missing cross-references
+or malformed `:::` directives.
+
+**Static build** — outputs to `site/`:
+
+```bash
+mkdocs build
+```
+
+`site/` is a self-contained static HTML tree. Open `site/index.html` directly,
+copy to any web server, or attach as a CI artifact. No runtime server required.
+
+---
+
+### GitHub Pages Deployment
+
+One-command publish to `gh-pages` branch:
+
+```bash
+mkdocs gh-deploy
+```
+
+Builds the site and force-pushes to `gh-pages`. GitHub serves it at:
+`https://<username>.github.io/CCPD-nowcastingcli/`
+
+**One-time repo setup:** Settings → Pages → Source → `gh-pages` branch, `/ (root)`.
+
+In Module 6 (GitHub Actions CI/CD), this command will be automated: a workflow
+will run `mkdocs gh-deploy` on every push to `main`.
+
+---
+
+### Exercise Checklist
+
+- [ ] `pip install mkdocs mkdocs-material mkdocstrings[python]`, add to `pyproject.toml` optional deps
+- [ ] `mkdocs new .` to scaffold `docs/` and `mkdocs.yml`
+- [ ] Add `site/` to `.gitignore`
+- [ ] Replace generated `mkdocs.yml` with the config above (update repo URL)
+- [ ] Use Claude Code to add Google-style docstrings to `physics.py`, `heuristics.py`, `models.py`
+- [ ] Review Claude Code's diff — verify units, Raises sections, no logic changes
+- [ ] Commit: `git commit -m "docs: add Google-style docstrings to physics, heuristics, models"`
+- [ ] Create `docs/api/models.md`, `docs/api/physics.md`, `docs/api/heuristics.md` with `:::` directives
+- [ ] Write `docs/index.md`, `docs/usage.md`, `docs/architecture.md`
+- [ ] Run `mkdocs serve` — verify API pages render, no WARNING lines in terminal
+- [ ] Run `mkdocs build` — verify `site/` is generated
+- [ ] (Optional) Run `mkdocs gh-deploy` — verify GitHub Pages URL is live
+- [ ] Commit: `git commit -m "docs: add MkDocs with Material theme, mkdocstrings API reference"`
 
 ---
 

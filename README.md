@@ -10,7 +10,7 @@ A terminal-based weather nowcasting CLI built with Python and [Rich](https://git
 NOWCASTINGCLI/
 ├── nowcastingcli/              # installable package
 │   ├── __init__.py             # package marker
-│   ├── main.py                 # CLI entry point — run(), get_float(), edit_observation()
+│   ├── main.py                 # CLI entry point — cli(), run(), get_float(), edit_observation()
 │   ├── models.py               # Observation dataclass
 │   ├── physics.py              # barometric QNH normalisation
 │   ├── heuristics.py           # worsening / stable / improving logic
@@ -25,8 +25,20 @@ NOWCASTINGCLI/
 │   └── test_physics.py         # tests for normalize_pressure()
 ├── scripts/                    # standalone helper scripts
 │   ├── Init_observation.py     # quick manual smoke-test for Observation
+│   ├── test_observations.csv   # sample CSV for --input and logging smoke-tests
+│   ├── test_logging.sh         # logging smoke-test (Bash / Git Bash / macOS)
+│   ├── test_logging.bat        # logging smoke-test (Windows CMD)
 │   ├── sync_env.bat            # sync conda environment between machines
 │   └── update_lock.bat         # regenerate environment.lock.yml
+├── docs/                       # project documentation
+│   ├── index.md                # landing page
+│   ├── architecture.md         # module map and data-flow diagram
+│   ├── usage.md                # input loop, valid ranges, dashboard reference
+│   └── api/                    # per-module API reference (mkdocstrings stubs)
+│       ├── physics.md
+│       ├── models.md
+│       ├── heuristics.md
+│       └── display.md
 ├── logs/                       # auto-created at runtime — rotating JSON log files
 ├── .vscode/
 │   ├── launch.json             # pytest debug configuration
@@ -34,9 +46,33 @@ NOWCASTINGCLI/
 ├── environment.lock.yml        # pinned conda environment snapshot
 ├── pyproject.toml              # build, dependencies, and pytest config
 ├── TODO.md                     # pending improvements
+├── SESSION_SUMMARY.md          # per-session change log
 ├── README.md
 ├── COURSE_NOTES.md
 └── README_CONDA_ENV_SYNC.md    # guide for syncing conda envs across machines
+```
+
+---
+
+## Documentation
+
+Human-readable docs live in `docs/`:
+
+| File | Contents |
+|------|----------|
+| [`docs/index.md`](docs/index.md) | Project overview and quick-start |
+| [`docs/architecture.md`](docs/architecture.md) | Module map and data-flow diagram |
+| [`docs/usage.md`](docs/usage.md) | Full input-loop reference, valid ranges, dashboard column guide |
+| [`docs/api/physics.md`](docs/api/physics.md) | `normalize_pressure()` API reference |
+| [`docs/api/models.md`](docs/api/models.md) | `Observation` dataclass field reference |
+| [`docs/api/heuristics.md`](docs/api/heuristics.md) | `assess_conditions()` API reference |
+| [`docs/api/display.md`](docs/api/display.md) | Dashboard rendering functions API reference |
+
+To build and serve the docs site locally:
+
+```bash
+pip install -e ".[docs]"
+mkdocs serve
 ```
 
 ---
@@ -53,10 +89,10 @@ name = "nowcastingcli"
 version = "0.1.0"
 description = "Terminal weather nowcasting dashboard"
 requires-python = ">=3.11"
-dependencies = ["rich>=13.0"]
+dependencies = ["rich>=13.0", "python-json-logger", "pytest", "pytest-cov", "setuptools", "wheel"]
 
 [project.scripts]
-nowcastingcli = "nowcastingcli.main:run"
+nowcastingcli = "nowcastingcli.main:cli"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -64,13 +100,21 @@ where = ["."]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=nowcastingcli --cov-fail-under=80"
+
+[project.optional-dependencies]
+docs = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+]
 ```
 
 Key sections explained:
 
 - **`[build-system]`** — tells pip to use `setuptools` to build the package.
 - **`[project]`** — package metadata: name, version, Python version constraint, and runtime dependencies (`rich`).
-- **`[project.scripts]`** — registers the `nowcastingcli` shell command, pointing it at the `run()` function in `main.py`. Available anywhere in the active environment after `pip install -e .`.
+- **`[project.scripts]`** — registers the `nowcastingcli` shell command, pointing it at the `cli()` entry point in `main.py`. `cli()` parses `--input` from `sys.argv` and delegates to `run()`. Available anywhere in the active environment after `pip install -e .`.
+- **`[project.optional-dependencies]`** — extra dependency groups installable with `pip install -e ".[docs]"`. The `docs` group pulls in MkDocs, the Material theme, and `mkdocstrings` for building the `docs/` site from Google-style docstrings.
 - **`[tool.setuptools.packages.find]`** — tells setuptools to auto-discover the `nowcastingcli` package from the project root.
 - **`[tool.pytest.ini_options]`** — pytest configuration baked into `pyproject.toml` so no separate `pytest.ini` is needed:
   - `testpaths` tells pytest to look for tests only in `tests/`.
