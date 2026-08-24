@@ -75,6 +75,13 @@ pip install -e ".[docs]"
 mkdocs serve
 ```
 
+To install every optional extra (`docs` + `dev`) alongside the runtime
+dependencies in one shot:
+
+```bash
+pip install -e ".[docs,dev]"
+```
+
 ---
 
 ## `pyproject.toml`
@@ -89,7 +96,7 @@ name = "nowcastingcli"
 version = "0.1.0"
 description = "Terminal weather nowcasting dashboard"
 requires-python = ">=3.11"
-dependencies = ["rich>=13.0", "python-json-logger", "pytest", "pytest-cov", "setuptools", "wheel"]
+dependencies = ["rich>=13.0", "python-json-logger"]
 
 [project.scripts]
 nowcastingcli = "nowcastingcli.main:cli"
@@ -107,14 +114,20 @@ docs = [
     "mkdocs-material",
     "mkdocstrings[python]",
 ]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "setuptools",
+    "wheel",
+]
 ```
 
 Key sections explained:
 
 - **`[build-system]`** — tells pip to use `setuptools` to build the package.
-- **`[project]`** — package metadata: name, version, Python version constraint, and runtime dependencies (`rich`).
+- **`[project]`** — package metadata: name, version, Python version constraint, and runtime dependencies (`rich`, `python-json-logger`).
 - **`[project.scripts]`** — registers the `nowcastingcli` shell command, pointing it at the `cli()` entry point in `main.py`. `cli()` parses `--input` from `sys.argv` and delegates to `run()`. Available anywhere in the active environment after `pip install -e .`.
-- **`[project.optional-dependencies]`** — extra dependency groups installable with `pip install -e ".[docs]"`. The `docs` group pulls in MkDocs, the Material theme, and `mkdocstrings` for building the `docs/` site from Google-style docstrings.
+- **`[project.optional-dependencies]`** — extra dependency groups. `docs` (MkDocs, the Material theme, `mkdocstrings`) installs with `pip install -e ".[docs]"`; `dev` (`pytest`, `pytest-cov`, `setuptools`, `wheel`) installs with `pip install -e ".[dev]"`. Install both together, on top of the required dependencies, with `pip install -e ".[docs,dev]"`.
 - **`[tool.setuptools.packages.find]`** — tells setuptools to auto-discover the `nowcastingcli` package from the project root.
 - **`[tool.pytest.ini_options]`** — pytest configuration baked into `pyproject.toml` so no separate `pytest.ini` is needed:
   - `testpaths` tells pytest to look for tests only in `tests/`.
@@ -145,8 +158,15 @@ From the project root (`NOWCASTINGCLI/`):
 pip install -e .
 ```
 
-This installs all dependencies (including `rich`) and registers the
-`nowcastingcli` console script.
+This installs the required runtime dependencies (`rich`, `python-json-logger`)
+and registers the `nowcastingcli` console script.
+
+To also pull in the documentation toolchain (`docs` extra) and development
+tooling (`dev` extra — `pytest`, `pytest-cov`, `setuptools`, `wheel`):
+
+```bash
+pip install -e ".[docs,dev]"
+```
 
 ---
 

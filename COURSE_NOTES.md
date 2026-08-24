@@ -1338,6 +1338,15 @@ Install the group with:
 pip install -e ".[docs]"
 ```
 
+`pytest`, `pytest-cov`, `setuptools`, and `wheel` similarly live under a
+`dev` extra rather than `[project] dependencies` — they're needed to work
+on the project, not to run it. Install every extra alongside the required
+dependencies with:
+
+```bash
+pip install -e ".[docs,dev]"
+```
+
 ---
 
 ### Project Structure
