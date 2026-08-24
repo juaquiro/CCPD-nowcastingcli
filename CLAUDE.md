@@ -23,3 +23,22 @@
 - pytest.approx for all float comparisons
 - parametrize for table-driven tests
 - test file mirrors source file: test_physics.py tests physics.py
+
+## Last Session (2026-08-24)
+
+Status: in progress — see `SESSION_SUMMARY.md` for full detail.
+
+- Synced `TODO.md` with GitHub issues (all 13 prior issues closed);
+  committed and pushed (`0be428f`).
+- Opened GitHub issue **#14**: log entries should carry `timestamp` and
+  `pressure_qnh`, not just the raw inputs. Tracked in `TODO.md`,
+  **not yet implemented**.
+- Moved `pytest`, `pytest-cov`, `setuptools`, `wheel` from
+  `[project] dependencies` to a new `[project.optional-dependencies].dev`
+  group in `pyproject.toml`; committed and pushed (`2c66a07`). Full
+  install command: `pip install -e ".[docs,dev]"`.
+- `README.md` / `COURSE_NOTES.md` were updated to document the `dev`
+  extra and combined install command; committed and pushed (`591668b`).
+
+Next session should start by implementing issue #14 in
+`main.py::_record_observation`.
