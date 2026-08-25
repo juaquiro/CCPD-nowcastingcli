@@ -7,9 +7,10 @@
       "request": "launch",
       "module": "pytest",
       "args": [
-        "tests",  // or just "tests/" for all
+        "tests",  
         "-v",
-        "-s"
+        "-s",
+        "--no-cov"
       ],
       "justMyCode": false,
       "console": "integratedTerminal"
