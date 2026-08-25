@@ -29,8 +29,38 @@
   - [Debugging Tests in VS Code](#debugging-tests-in-vs-code)
   - [Exercise Checklist](#exercise-checklist-1)
 - [Part 3 — Claude Code: Refactoring, Test Generation, Code Explanation](#part-3--claude-code-refactoring-test-generation-code-explanation)
+  - [What Claude Code Is](#what-claude-code-is)
+  - [Installation](#installation)
+  - [First Launch](#first-launch)
+  - [Use Case 1 — Code Explanation](#use-case-1--code-explanation)
+  - [Use Case 2 — Refactoring](#use-case-2--refactoring)
+  - [Use Case 3 — Test Generation](#use-case-3--test-generation)
+  - [Slash Commands](#slash-commands)
+  - [CLAUDE.md — Persistent Project Instructions](#claudemd--persistent-project-instructions)
+  - [VS Code Integration](#vs-code-integration)
+  - [Exercise Checklist](#exercise-checklist-2)
 - [Part 4 — Logging: Structured Logs for NowcastingCLI](#part-4--logging-structured-logs-for-nowcastingcli)
+  - [Why Logging Not print()](#why-logging-not-print)
+  - [Logger Hierarchy](#logger-hierarchy)
+  - [Handlers and Formatters](#handlers-and-formatters)
+  - [dictConfig vs basicConfig](#dictconfig-vs-basicconfig)
+  - [Structured JSON Logging](#structured-json-logging)
+  - [Where to Log in NowcastingCLI](#where-to-log-in-nowcastingcli)
+  - [Implementation](#implementation)
+  - [Claude Code Agentic Task](#claude-code-agentic-task)
+  - [Verifying Output](#verifying-output)
+  - [Exercise Checklist](#exercise-checklist-3)
 - [Part 5 — Documentation: MkDocs for NowcastingCLI](#part-5--documentation-mkdocs-for-nowcastingcli)
+  - [MkDocs vs Sphinx](#mkdocs-vs-sphinx)
+  - [Install](#install-1)
+  - [Project Structure](#project-structure-1)
+  - [mkdocs.yml](#mkdocsyml)
+  - [Docstrings with Claude Code](#docstrings-with-claude-code)
+  - [API Reference Pages](#api-reference-pages)
+  - [Content Pages](#content-pages)
+  - [Live Preview and Build](#live-preview-and-build)
+  - [GitHub Pages Deployment](#github-pages-deployment)
+  - [Exercise Checklist](#exercise-checklist-4)
 
 ---
 
@@ -712,6 +742,8 @@ intercept `breakpoint()` calls and open its GUI at that line.
 
 ---
 
+---
+
 ## Part 3 — Claude Code: Refactoring, Test Generation, Code Explanation
 
 ### What Claude Code Is
@@ -812,7 +844,7 @@ The resulting `physics.py` after refactoring:
 
 ```python
 # Physical constants
-LAPSE_RATE = 0.0065         # Standard tropospheric lapse rate, K/m
+LAPSE_RATE = 0.0065          # Standard tropospheric lapse rate, K/m
 BAROMETRIC_EXPONENT = 5.257  # Derived from ideal gas law + hydrostatic equation
 KELVIN_OFFSET = 273.15       # °C to Kelvin conversion
 
@@ -938,6 +970,8 @@ Use whichever keeps you in flow.
 - [ ] Run the **test generation** task: generate tests for the new validators
 - [ ] Review generated tests critically — strengthen at least one that is too weak
 - [ ] Commit: `git commit -m "refactor: extract constants and add validation to physics.py"`
+
+---
 
 ---
 
@@ -1373,7 +1407,7 @@ nowcastingcli/
 │       ├── physics.md
 │       └── heuristics.md
 ├── mkdocs.yml
-├── site/                  # Build output — gitignored
+├── site/                 # Build output — gitignored
 ```
 
 Add `site/` to `.gitignore`:
@@ -1529,10 +1563,10 @@ and displays a live `rich` dashboard.
 
 ## Quick start
 
-```bash
+​```bash
 conda activate nowcastingcli
 python -m nowcastingcli
-```
+​```
 ```
 
 **`docs/usage.md`** — document the input loop, valid input ranges, what the
@@ -1556,7 +1590,7 @@ dashboard displays, and how to exit cleanly.
 
 ## Data flow
 
-```
+​```
 User input
     │
     ▼
@@ -1565,13 +1599,13 @@ Observation (models.py)
     ├──► normalize_pressure() → QNH       (physics.py)
     │
     └──► assess_conditions()  → verdict   (heuristics.py)
-                    │
-                    ▼
-               display.py (rich Panel)
-                    │
-                    ▼
-               logging_config.py → logs/
-```
+                │
+                ▼
+           display.py (rich Panel)
+                │
+                ▼
+           logging_config.py → logs/
+​```
 ```
 
 ---
