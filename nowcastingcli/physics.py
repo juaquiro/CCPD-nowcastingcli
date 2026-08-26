@@ -38,6 +38,8 @@ def normalize_pressure(pressure_hpa: float, altitude_m: float, temperature_c: fl
     Assumes a constant lapse rate, dry air, and hydrostatic equilibrium.
     Accuracy degrades above 5000 m and in temperature-inversion conditions.
 
+    Reference: https://en.wikipedia.org/wiki/Barometric_formula
+
     Args:
         pressure_hpa: Raw station pressure in hectopascals (hPa). Must be > 0.
         altitude_m: GPS altitude of the station above sea level in metres (m).

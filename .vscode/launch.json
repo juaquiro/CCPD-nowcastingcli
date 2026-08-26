@@ -7,11 +7,19 @@
       "request": "launch",
       "module": "pytest",
       "args": [
-        "tests",  
+        "tests",
         "-v",
         "-s",
         "--no-cov"
       ],
+      "justMyCode": false,
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Debug NowcastingCLI",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "nowcastingcli.main",
       "justMyCode": false,
       "console": "integratedTerminal"
     }

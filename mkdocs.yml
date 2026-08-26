@@ -3,6 +3,15 @@ site_description: Terminal-based weather nowcasting dashboard
 repo_url: https://github.com/juaquiro/CCPD-nowcastingcli
 repo_name: CCPD-nowcastingcli
 
+hooks:
+  - mkdocs_hooks.py
+
+copyright: "NowcastingCLI"   # overwritten dynamically by mkdocs_hooks.on_config
+
+extra:
+  project_version: ""   # populated by mkdocs_hooks.on_config
+  build_date: ""         # populated by mkdocs_hooks.on_config
+
 theme:
   name: material
   features:

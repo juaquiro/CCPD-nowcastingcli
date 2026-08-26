@@ -21,7 +21,7 @@ addopts = "--cov=nowcastingcli --cov-fail-under=80"
 
 [project.optional-dependencies]
 docs = [
-    "mkdocs",
+    "mkdocs>=1.5,<2.0",
     "mkdocs-material",
     "mkdocstrings[python]",
 ]

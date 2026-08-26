@@ -1,6 +1,24 @@
 # nowcastingcli/logging_config.py
 import logging.config
 
+# Schema consumed by logging.config.dictConfig() — see the stdlib "dictionary
+# schema" docs. Structure:
+#   version: must be 1 (only schema version defined by the stdlib).
+#   disable_existing_loggers: False, so loggers created via getLogger() before
+#     this config runs are kept instead of being silenced.
+#   formatters: name -> formatter spec.
+#     "()" is a special key: a dotted path to a callable/class to instantiate
+#     in place of the default logging.Formatter (used here for JsonFormatter).
+#   handlers: name -> handler spec.
+#     "class" is a dotted path to the handler class; all other keys are
+#     passed through as constructor kwargs. "formatter" references a key in
+#     formatters. "ext://..." resolves a dotted path to an existing object
+#     (e.g. sys.stderr) rather than instantiating one.
+#   loggers: name -> logger spec.
+#     "handlers" is a list of handler names above. "propagate": False stops
+#     records from bubbling up to the root logger. Child loggers created via
+#     getLogger(__name__) (e.g. "nowcastingcli.physics") inherit this config
+#     through the dotted-name hierarchy without their own entry.
 LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,

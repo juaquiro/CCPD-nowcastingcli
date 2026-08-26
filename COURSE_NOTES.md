@@ -2,7 +2,7 @@
 
 > **Course:** Claude Code for Python Developers: Hands-On Agentic Coding
 > **Repo:** CCPD-nowcastingcli
-> **Last updated:** 2026-08-25
+> **Last updated:** 2026-08-26
 
 ---
 
@@ -60,6 +60,8 @@
   - [Content Pages](#content-pages)
   - [Live Preview and Build](#live-preview-and-build)
   - [GitHub Pages Deployment](#github-pages-deployment)
+  - [Doc Versioning: Version and Date in HTML Output](#doc-versioning-version-and-date-in-html-output)
+  - [Addendum 2026-08-26 — MkDocs 2.0 Ecosystem Warning](#addendum-2026-08-26--mkdocs-20-ecosystem-warning)
   - [Exercise Checklist](#exercise-checklist-4)
 
 ---
@@ -616,7 +618,7 @@ Create `.vscode/launch.json`:
       "type": "debugpy",
       "request": "launch",
       "module": "pytest",
-      "args": ["tests", "-v", "-s", "--no-cov"],
+      "args": ["tests", "-v", "-s"],
       "justMyCode": false,
       "console": "integratedTerminal"
     }
@@ -634,43 +636,6 @@ Then: `Ctrl+Shift+P` → `Python: Select Interpreter` → select your conda env.
 
 `"justMyCode": false` is important — without it, the debugger won't step into
 library source code (e.g., into `normalize_pressure` from a calling test).
-
-**`--no-cov` is required in the debug config.** `pytest-cov` and `debugpy` use
-conflicting trace hooks — running coverage while the debugger is attached causes
-a deadlock at startup (`KeyboardInterrupt` in `pytest_cov/engine.py`). The fix
-is `--no-cov` in the debug launch args only. Run coverage separately from the
-terminal (`pytest --cov=nowcastingcli --cov-report=term-missing`) when you don't
-need breakpoints.
-
-**Two-config pattern** (optional but clean):
-
-```json
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Debug Pytest",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "pytest",
-      "args": ["tests", "-v", "-s", "--no-cov"],
-      "justMyCode": false,
-      "console": "integratedTerminal"
-    },
-    {
-      "name": "Run Pytest with Coverage",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "pytest",
-      "args": ["tests", "-v"],
-      "justMyCode": false,
-      "console": "integratedTerminal"
-    }
-  ]
-}
-```
-
-Select via the dropdown in the Run & Debug panel (`Ctrl+Shift+D`).
 
 ---
 
@@ -736,7 +701,7 @@ intercept `breakpoint()` calls and open its GUI at that line.
 - [ ] Run `pytest -v` — all green
 - [ ] Run with `--cov` — identify one untested branch and add a test for it
 - [ ] Add `[tool.pytest.ini_options]` to `pyproject.toml` with `testpaths` and `addopts`
-- [ ] Set a breakpoint in `normalize_pressure` and step through it via F5 (with `--no-cov` in launch.json)
+- [ ] Set a breakpoint in `normalize_pressure` and step through it via F5
 - [ ] Reproduce the same inspection using `breakpoint()` + `pytest -v -s`
 - [ ] Commit: `git add tests/ pyproject.toml .vscode/ && git commit -m "feat: add pytest test suite"`
 
@@ -1375,15 +1340,6 @@ Install the group with:
 pip install -e ".[docs]"
 ```
 
-`pytest`, `pytest-cov`, `setuptools`, and `wheel` similarly live under a
-`dev` extra rather than `[project] dependencies` — they're needed to work
-on the project, not to run it. Install every extra alongside the required
-dependencies with:
-
-```bash
-pip install -e ".[docs,dev]"
-```
-
 ---
 
 ### Project Structure
@@ -1572,7 +1528,7 @@ python -m nowcastingcli
 **`docs/usage.md`** — document the input loop, valid input ranges, what the
 dashboard displays, and how to exit cleanly.
 
-**`docs/architecture.md`** — module map and data flow. Template:
+**`docs/architecture.md`** — module map and data flow:
 
 ```markdown
 # Architecture
@@ -1652,6 +1608,190 @@ will run `mkdocs gh-deploy` on every push to `main`.
 
 ---
 
+### Doc Versioning: Version and Date in HTML Output
+
+Three options in increasing complexity. **Option 2 is recommended** for this project.
+
+#### Option 1 — Static footer in `mkdocs.yml` (manual, simplest)
+
+Material renders `copyright` in the page footer automatically:
+
+```yaml
+copyright: "NowcastingCLI v0.1.0 — 2026-08-26"
+```
+
+Downside: you update it by hand. Fine if you rarely change version or date.
+
+---
+
+#### Option 2 — Dynamic hook: read version from `pyproject.toml` (recommended)
+
+Create `mkdocs_hooks.py` at the repo root:
+
+```python
+# mkdocs_hooks.py
+import tomllib
+from datetime import date
+
+def on_config(config):
+    with open("pyproject.toml", "rb") as f:
+        meta = tomllib.load(f)
+    version = meta["project"]["version"]
+    config["extra"]["project_version"] = version
+    config["extra"]["build_date"] = date.today().isoformat()
+    return config
+```
+
+Wire into `mkdocs.yml`:
+
+```yaml
+hooks:
+  - mkdocs_hooks.py
+
+extra:
+  project_version: ""   # populated at build time by the hook
+  build_date: ""
+
+copyright: "NowcastingCLI v{{ project_version }} — {{ build_date }}"
+```
+
+`tomllib` is stdlib in Python 3.11+ — no extra dependency.
+`hooks:` is a native MkDocs 1.x feature — no plugin needed.
+
+**Why this is the right pattern:** version is declared once in `pyproject.toml`
+and flows automatically into both the installable package and the HTML docs.
+No manual sync, no risk of docs showing a stale version string.
+
+You can also reference `{{ project_version }}` inline in any `.md` page:
+
+```markdown
+**Version:** {{ project_version }} — **Built:** {{ build_date }}
+```
+
+Commit the hook alongside the docs:
+
+```bash
+git add mkdocs_hooks.py mkdocs.yml
+git commit -m "docs: add build-time version injection from pyproject.toml"
+```
+
+---
+
+#### Option 3 — Full versioned docs with `mike` (for library projects)
+
+`mike` publishes multiple doc versions to `gh-pages` simultaneously (e.g.
+`v0.1`, `v0.2`, `latest`) with a version-switcher dropdown in the nav bar.
+
+```bash
+pip install mike
+mike deploy --push --update-aliases 0.1 latest
+mike set-default --push latest
+```
+
+Adds a `[project.optional-dependencies]` entry:
+
+```toml
+docs = [
+    "mkdocs>=1.5,<2",
+    "mkdocs-material>=9.7.5",
+    "mkdocstrings[python]",
+    "mike",
+]
+```
+
+**When to use:** `mike` is overkill for NowcastingCLI — there is only one
+deployed version at a time. It becomes relevant for the `fringeDemod` library
+(Project 2), where API stability matters and users may need to pin to an older
+version of the docs.
+
+---
+
+### Addendum 2026-08-26 — MkDocs 2.0 Ecosystem Warning
+
+> **Status as of August 2026.** The situation is still evolving.
+> Pin versions as described below until there is a clear migration path.
+
+#### What happened
+
+MkDocs 2.0 is a ground-up rewrite of the MkDocs framework by a new maintainer,
+published as a pre-release under a separate GitHub org (`encode/mkdocs`).
+It is **incompatible with Material for MkDocs and the entire plugin ecosystem**,
+including `mkdocstrings`. There is no migration path from MkDocs 1.x.
+
+Key breaking changes in MkDocs 2.0:
+
+| Change | Impact |
+|--------|--------|
+| Plugin system removed | `mkdocstrings`, `search`, and all third-party plugins stop working |
+| Theming system rewritten | Material for MkDocs breaks entirely |
+| YAML config replaced with TOML | Existing `mkdocs.yml` files are invalid |
+| Closed contribution model | Community cannot report bugs or submit PRs |
+| Currently unlicensed | Unsuitable for production or commercial use |
+
+MkDocs 1.x is simultaneously unmaintained — no releases in 18+ months, issues
+and PRs piling up, and security fix status unclear.
+
+#### The Material for MkDocs team's response
+
+The Material for MkDocs team (squidfunk) has built **Zensical** — a new static
+site generator designed as a drop-in replacement for MkDocs 1.x, compatible
+with existing `mkdocs.yml` files and the plugin ecosystem. It is not a fork
+(forking is impractical because all 300+ plugins have a hard `mkdocs` package
+dependency); it is a clean rewrite with a proper build graph, parallel builds,
+and differential builds.
+
+Zensical is in active development. Full plugin compatibility is not yet complete,
+but it is the intended long-term home for Material for MkDocs and `mkdocstrings`.
+
+#### What the warning means in practice
+
+The warning you see during `mkdocs serve` / `mkdocs build` is emitted by
+**Material for MkDocs ≥ 9.7.2** to alert you that MkDocs 2.0 will break your
+build if installed. It does **not** mean your current build is broken — it is
+a forward-looking advisory.
+
+To suppress it while the situation resolves:
+
+```bash
+export NO_MKDOCS_2_WARNING=1
+```
+
+#### How to protect your build today
+
+**Pin `mkdocs` to `<2` in your deps.** Material for MkDocs 9.7.5+ already
+does this automatically, but be explicit in your own config:
+
+```toml
+[project.optional-dependencies]
+docs = [
+    "mkdocs>=1.5,<2",
+    "mkdocs-material>=9.7.5",
+    "mkdocstrings[python]",
+]
+```
+
+This ensures `pip install -e ".[docs]"` will never accidentally pull in
+MkDocs 2.0 if/when it is released to PyPI.
+
+#### Recommended stance for this course
+
+- **Continue using MkDocs 1.x + Material + mkdocstrings** — the stack works,
+  is stable, and will receive security attention from the Material team.
+- **Watch Zensical** (`zensical.org`) — when it reaches stable plugin
+  compatibility, migration from MkDocs 1.x will be straightforward (same
+  YAML config, same `:::` directives).
+- **Do not install MkDocs 2.0** — it is unlicensed, has no plugin support,
+  and no migration path exists for this project's setup.
+- **Do not suppress the warning permanently** in CI — keep it visible so you
+  notice when the situation changes.
+
+#### Reference
+
+Full analysis by the Material for MkDocs team:
+`https://squidfunk.github.io/mkdocs-material/blog/2026/02/18/mkdocs-2.0/`
+
+---
+
 ### Exercise Checklist
 
 - [ ] `pip install mkdocs mkdocs-material mkdocstrings[python]`, add to `pyproject.toml` optional deps
@@ -1666,6 +1806,10 @@ will run `mkdocs gh-deploy` on every push to `main`.
 - [ ] Run `mkdocs serve` — verify API pages render, no WARNING lines in terminal
 - [ ] Run `mkdocs build` — verify `site/` is generated
 - [ ] (Optional) Run `mkdocs gh-deploy` — verify GitHub Pages URL is live
+- [ ] Create `mkdocs_hooks.py` with `on_config` hook reading version from `pyproject.toml`
+- [ ] Add `hooks:` and `extra:` blocks to `mkdocs.yml`; set `copyright` to use `{{ project_version }}` and `{{ build_date }}`
+- [ ] Run `mkdocs serve` — verify footer shows correct version and today's date
+- [ ] Pin `mkdocs` to `<2` in `pyproject.toml` optional deps (see addendum)
 - [ ] Commit: `git commit -m "docs: add MkDocs with Material theme, mkdocstrings API reference"`
 
 ---

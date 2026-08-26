@@ -1,6 +1,8 @@
 # NowcastingCLI
 
-Terminal-based weather nowcasting dashboard.
+Terminal-based weather nowcasting dashboard
+
+**Version:** {{ project_version }} — **Built:** {{ build_date }}
 
 Accepts periodic pressure, temperature, humidity, and altitude readings,
 normalises pressure to QNH, classifies conditions as **IMPROVING / STABLE / WORSENING**,
