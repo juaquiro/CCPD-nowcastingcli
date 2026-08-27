@@ -48,7 +48,13 @@ NOWCASTINGCLI/
 ├── TODO.md                     # pending improvements
 ├── SESSION_SUMMARY.md          # per-session change log
 ├── README.md
-├── COURSE_NOTES.md
+├── course_notes/                # course notes, split per module
+│   ├── Course_Notes_Index.md
+│   ├── Module1_Course_Notes.md
+│   ├── Module2_Course_Notes.md
+│   ├── Module3_Course_Notes.md
+│   ├── Module4_Course_Notes.md
+│   └── Module5_Course_Notes.md
 └── README_CONDA_ENV_SYNC.md    # guide for syncing conda envs across machines
 ```
 
@@ -67,6 +73,9 @@ Human-readable docs live in `docs/`:
 | [`docs/api/models.md`](docs/api/models.md) | `Observation` dataclass field reference |
 | [`docs/api/heuristics.md`](docs/api/heuristics.md) | `assess_conditions()` API reference |
 | [`docs/api/display.md`](docs/api/display.md) | Dashboard rendering functions API reference |
+
+Course notes live in [`course_notes/`](course_notes/), split per module and
+indexed in [`course_notes/Course_Notes_Index.md`](course_notes/Course_Notes_Index.md).
 
 To build and serve the docs site locally:
 
