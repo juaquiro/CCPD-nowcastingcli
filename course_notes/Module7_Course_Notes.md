@@ -40,6 +40,30 @@ NAnt's own conditional task attributes or a wrapping script.
 This is a deliberate rename from an earlier draft (`main`=dev, `build`=release)
 specifically to avoid fighting GitHub's built-in conventions.
 
+**Implementation in this repo:**
+
+- `develop` was branched off the tip of the original single-branch `main`
+  (so it started with full history, nothing lost) and pushed to `origin`.
+- `develop` was then set as the repository's **default branch**
+  (Settings → General → Default branch, or `gh api -X PATCH
+  repos/{owner}/{repo} --field default_branch=develop`). New clones,
+  new PRs, and the branch shown by default on GitHub now point at
+  `develop`, matching its role as the everyday integration branch.
+- `main` was locked down with a branch protection rule (`gh api -X PUT
+  repos/{owner}/{repo}/branches/main/protection`):
+  - Pull request required to merge (`required_pull_request_reviews`,
+    `required_approving_review_count: 0` — a PR is mandatory, but a solo
+    maintainer doesn't need a second reviewer to approve their own PR).
+  - `allow_force_pushes: false` — history on `main` can't be rewritten.
+  - `allow_deletions: false` — the branch can't be deleted.
+  - `enforce_admins: false` — the repo admin can still bypass protection
+    in an emergency (e.g., a hotfix that can't wait), rather than being
+    locked out entirely.
+- Net effect: `git push origin main` now fails for everyone, including the
+  admin, unless they explicitly bypass protection; the only supported path
+  onto `main` is a merged pull request from `develop` (or a `hotfix/*`
+  branch, see Scenario 4).
+
 ---
 
 ## 3. Workflow 1 — `smoke-tests.yml`
@@ -155,15 +179,27 @@ just runs tests/coverage/docs — no spurious release.
 
 ## 5. Branch Protection Rules
 
-Configured in GitHub UI (Settings → Branches), not in YAML:
+Configured in GitHub UI (Settings → Branches) or via `gh api`, not in YAML:
 
 - **`develop`:** require the `smoke` check to pass before merge; require
   branches to be up to date before merging (forces re-check against
   current tip, shrinking the gap the `push`-triggered confirmation run
   exists to catch).
 - **`main`:** require the `full-suite` check (from the `pull_request`
-  trigger) to pass before merge; same up-to-date requirement; consider
-  requiring a PR (no direct pushes) given `main` triggers publishing.
+  trigger) to pass before merge; same up-to-date requirement; require a PR
+  (no direct pushes) given `main` triggers publishing.
+
+**Currently applied in this repo** (status-check requirements above are the
+target once `smoke-tests.yml`/`release.yml` exist and report check runs —
+not yet added; see Exercise Checklist):
+
+| Setting | `main` |
+|---|---|
+| Pull request required to merge | Yes (`required_approving_review_count: 0`) |
+| Required status checks | Not yet configured (no workflow files yet) |
+| Force pushes | Blocked |
+| Branch deletion | Blocked |
+| Admin enforcement | Off — admin can bypass in an emergency |
 
 ---
 
@@ -246,12 +282,16 @@ pipeline to a different build/CI system.
 
 ## Exercise Checklist
 
-- [ ] Rename current default branch to `develop`; create `main`
+- [x] Branch `develop` off the existing `main`; set `develop` as the
+      repository's default branch
+- [x] Set branch protection on `main` (PR required, no force pushes, no
+      deletions, admin bypass allowed)
 - [ ] Add `smoke` pytest marker + `smoke-tests.yml`
 - [ ] Set branch protection on `develop` requiring the smoke check
 - [ ] Write `release.yml` with the `pull_request`/`push` split and the
       `if: github.event_name == 'push'` guard
-- [ ] Set branch protection on `main` requiring the full-suite check
+- [ ] Add the `full-suite` check to `main`'s branch protection as a
+      required status check (protection rule itself already exists)
 - [ ] Register PyPI Trusted Publisher for the repo + `release.yml`
 - [ ] Walk a real feature branch through Scenario 2 end-to-end
 - [ ] Walk a `develop → main` PR through Scenario 3 end-to-end, confirm
