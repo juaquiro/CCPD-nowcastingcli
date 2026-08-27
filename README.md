@@ -4,6 +4,21 @@ A terminal-based weather nowcasting CLI built with Python and [Rich](https://git
 
 ---
 
+## Branching Model
+
+This repo uses a two-branch model:
+
+| Branch | Role | Notes |
+|---|---|---|
+| `develop` | Default branch — everyday feature integration | All feature work and PRs target this branch |
+| `main` | Stable / production-ready branch | Updated only via PR from `develop` at release time; protected — no direct pushes, no force-pushes, no deletion |
+
+Everyday workflow: branch off `develop`, open a PR back into `develop`. When
+`develop` is stable and ready to ship, open a PR from `develop` into `main`
+to cut a release.
+
+---
+
 ## Project Structure
 
 ```
