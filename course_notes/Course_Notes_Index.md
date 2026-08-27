@@ -2,7 +2,7 @@
 
 > **Course:** Claude Code for Python Developers: Hands-On Agentic Coding
 > **Repo:** CCPD-nowcastingcli
-> **Last updated:** 2026-08-26
+> **Last updated:** 2026-08-27
 
 This index replaces the single monolithic `COURSE_NOTES.md`. Notes are now
 split one file per module — easier to manage, easier to extend as new
@@ -19,6 +19,8 @@ modules (fringeDemod, GitHub Actions, packaging/delivery, etc.) are added.
 | 3 | [Module3_Course_Notes.md](./Module3_Course_Notes.md) | Claude Code: Refactoring, Test Generation, Code Explanation |
 | 4 | [Module4_Course_Notes.md](./Module4_Course_Notes.md) | Logging: Structured Logs for NowcastingCLI |
 | 5 | [Module5_Course_Notes.md](./Module5_Course_Notes.md) | Documentation: MkDocs for NowcastingCLI |
+| 6 | [Module6_Course_Notes.md](./Module6_Course_Notes.md) | Build, Packaging, and Manual Delivery |
+| 7 | [Module7_Course_Notes.md](./Module7_Course_Notes.md) | CI/CD: GitHub Actions (branch model, 4 workflow triggers, 4 working scenarios) |
 
 ---
 
@@ -133,12 +135,61 @@ break and the recommended stance (pin `mkdocs<2`, watch Zensical).
 
 ---
 
+## Module 6 — Build, Packaging, and Manual Delivery
+
+**Summary:** Covered the standard Python build/packaging chain independent
+of any CI system — `pyproject.toml` as the single build-config source,
+`python -m build` producing wheel + sdist, and the manual delivery paths
+(TestPyPI/PyPI via Trusted Publishing, conda packaging as an alternative,
+and plain local/editable install for another machine). This module is the
+prerequisite for Module 7 — CI/CD automates exactly the manual steps
+established here. Closes with a repo-state note: current branch renames
+to `develop`, and a new `main` branch is created as the stable/release
+branch, setting up Module 7's branch model.
+
+**Sections:**
+- Build Backends and `pyproject.toml`
+- `python -m build`: Wheel vs sdist
+- Version Source of Truth
+- Manual Delivery Path 1 — TestPyPI / PyPI (Trusted Publishing vs. token upload)
+- Manual Delivery Path 2 — conda packaging
+- Manual Delivery Path 3 — Local/editable install on another machine
+- Standalone Package Checklist (what "ready for installation on another machine" means)
+- Exercise Checklist
+
+---
+
+## Module 7 — CI/CD: GitHub Actions
+
+**Summary:** Migrated the manual Module 6 delivery process into two GitHub
+Actions workflows, using a two-branch model (`develop` = integration,
+`main` = release) with GitHub branch protection as the enforcement
+mechanism. Covered the distinction between `pull_request`-triggered checks
+(gates, block merge) and `push`-triggered checks (post-merge confirmation),
+PyPI Trusted Publishing via OIDC, auto-tagging with idempotency, and the
+four standard working scenarios including the hotfix exception path.
+Explicitly separates what is GitHub-platform-dependent (portable only via
+migration effort) from what is tooling-standard (portable as-is).
+
+**Sections:**
+- GitHub Actions vs. NAnt — Conceptual Mapping
+- Branch Model: `develop` (integration) vs `main` (release)
+- Workflow 1 — `smoke-tests.yml` (triggers, gate vs. confirmation runs)
+- Workflow 2 — `release.yml` (triggers, gate vs. ship runs, `if: github.event_name == 'push'`)
+- Branch Protection Rules (required status checks, up-to-date requirement)
+- PyPI Trusted Publishing (OIDC, `permissions: id-token: write`)
+- Auto-Tag and Release Idempotency
+- **The Four Working Scenarios** (Normal Development, Feature Work, Build/Release, Hotfix)
+- **What Is GitHub-Dependent vs. Tool-Standard** (portability audit)
+- Exercise Checklist
+
+---
+
 ## On the Horizon
 
 - fringeDemod (Course Project 2, Module 1) — scientific library design
 - fringeDemod-cli (Module 2) — CLI wrapper, dependency management
 - fringeDemod-qt (Module 3) — PyQt GUI, threading, SQLite
 - fringeDemod-web (Module 4) — FastAPI, HTTP basics, Docker (optional)
-- GitHub Actions CI/CD (referenced but not yet covered as its own module)
 
 *This index and the per-module files will be extended as each new module is completed.*
