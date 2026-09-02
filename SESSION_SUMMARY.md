@@ -40,7 +40,6 @@ Documentation/maintenance pass: synced `TODO.md` with GitHub issues, trimmed
 `pyproject.toml` runtime dependencies down to what the app actually needs at
 runtime, and documented the resulting install commands. Status: **in
 progress** — issue #14 (below) is open and not yet implemented.
-
 ## Changes by item
 
 ### Synced `TODO.md` with GitHub issues
