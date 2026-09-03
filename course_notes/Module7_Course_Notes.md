@@ -201,6 +201,20 @@ not yet added; see Exercise Checklist):
 | Branch deletion | Blocked |
 | Admin enforcement | Off — admin can bypass in an emergency |
 
+**Currently applied in this repo — `develop`:**
+
+Branch protection is now live on `develop`:
+- Required status check: `smoke`, `strict: true` (branch must be up to
+  date before merge)
+- Required PR before merge: enabled, 0 required approvals
+- `enforce_admins: false` — as owner, direct pushes from you still work;
+  non-admin collaborators must go through a PR that only merges once
+  `smoke` is green
+- Force-pushes and branch deletion: both blocked
+
+Verify anytime with `gh api repos/{owner}/{repo}/branches/develop/protection`,
+or GitHub → Settings → Branches in the UI.
+
 ---
 
 ## 6. PyPI Trusted Publishing (OIDC)
@@ -352,7 +366,7 @@ pipeline to a different build/CI system.
 - [x] Add `smoke` pytest marker + `smoke-tests.yml`
 - [x] Walk Scenario 1 (direct push to `develop`, confirmation-only run)
       end-to-end, confirm green; document notification methods (§7)
-- [ ] Set branch protection on `develop` requiring the smoke check
+- [x] Set branch protection on `develop` requiring the smoke check
 - [ ] Write `release.yml` with the `pull_request`/`push` split and the
       `if: github.event_name == 'push'` guard
 - [ ] Add the `full-suite` check to `main`'s branch protection as a
