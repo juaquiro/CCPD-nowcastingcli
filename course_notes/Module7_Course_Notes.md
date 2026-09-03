@@ -110,6 +110,23 @@ markers = ["smoke: fast subset run on every push/PR to develop"]
 
 ## 4. Workflow 2 — `release.yml`
 
+**Status: committed to `develop`** (inert there — only triggers on
+`pull_request`/`push` to `main`; won't actually run until Step 8's
+`develop → main` PR exercises it). Two fixes applied beyond this draft,
+both needed for the workflow to run at all on a fresh runner:
+
+- `tag-and-release` needs `env: { GH_TOKEN: ${{ github.token }} }` on the
+  tagging step — `gh release create` requires an authenticated `gh` CLI;
+  the run-scoped `github.token` covers it with no secret to configure.
+- `build-and-publish` runs on its own fresh runner (jobs don't share
+  environment within a workflow run) and needs `actions/setup-python@v5`
+  + `pip install build` before `python -m build` — neither Python nor
+  the `build` package is present by default.
+
+`pyproject.toml`'s `[project].version` is confirmed a static string
+(`"0.6.0"` as of Module 7 work), not `setuptools_scm`-managed, so the
+`tomllib`-based version extraction below works unmodified.
+
 ```yaml
 name: Release Pipeline
 on:
@@ -146,6 +163,8 @@ jobs:
           git tag "v$VERSION"
           git push origin "v$VERSION"
           gh release create "v$VERSION" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}    # gh CLI needs auth; run-scoped, no secret
 
   build-and-publish:
     needs: tag-and-release
@@ -154,6 +173,9 @@ jobs:
     permissions: { id-token: write }        # PyPI Trusted Publishing (OIDC)
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5      # fresh runner, needs its own Python
+        with: { python-version: "3.x" }
+      - run: pip install build
       - run: python -m build
       - uses: pypa/gh-action-pypi-publish@release/v1
 ```
@@ -367,8 +389,9 @@ pipeline to a different build/CI system.
 - [x] Walk Scenario 1 (direct push to `develop`, confirmation-only run)
       end-to-end, confirm green; document notification methods (§7)
 - [x] Set branch protection on `develop` requiring the smoke check
-- [ ] Write `release.yml` with the `pull_request`/`push` split and the
-      `if: github.event_name == 'push'` guard
+- [x] Write `release.yml` with the `pull_request`/`push` split and the
+      `if: github.event_name == 'push'` guard (committed to `develop`;
+      inert there until a `develop → main` PR exercises it)
 - [ ] Add the `full-suite` check to `main`'s branch protection as a
       required status check (protection rule itself already exists)
 - [ ] Register PyPI Trusted Publisher for the repo + `release.yml`
