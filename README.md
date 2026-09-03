@@ -163,7 +163,7 @@ Key sections explained:
 
 Full detail, verification steps, and rationale live in
 [`course_notes/Module6_Course_Notes.md`](course_notes/Module6_Course_Notes.md).
-Four ways to hand off a build, depending on what the target machine has:
+Five ways to hand off a build, depending on what the target machine has:
 
 | Path | Output | Target needs | Command |
 |---|---|---|---|
@@ -171,11 +171,17 @@ Four ways to hand off a build, depending on what the target machine has:
 | **2. conda packaging** | conda package | conda | Not used for this project yet (no compiled/Qt deps) — see notes for a `meta.yaml` sketch |
 | **3. Local wheel / editable install** | `.whl` file or a git clone | Python + pip (no PyPI account, no network needed for the wheel option) | `pip install nowcastingcli-<version>-py3-none-any.whl`, or `git clone` + `pip install -e .` |
 | **4. Standalone `.exe` (PyInstaller)** | Single self-contained executable | **Nothing** — no Python required at all | `pyinstaller nowcastingcli.spec` (rebuilds from the committed spec; see `launcher.py` and `nowcastingcli.spec`) |
+| **5. Unix / Raspberry Pi (`pipx`)** | Isolated CLI install, no conda needed | Python + pip on a Unix target (e.g. Raspberry Pi OS) | `pipx install nowcastingcli` (or `pipx install --index-url https://test.pypi.org/simple/ --pip-args="--extra-index-url https://pypi.org/simple/" nowcastingcli` for TestPyPI) |
 
-Paths 1–3 all assume a Python interpreter is already on the target machine
-(a "framework-dependent" deployment); Path 4 bundles the interpreter itself
-(a "self-contained" deployment) and is distributed directly — zipped,
-attached to a release, handed over on a USB stick — never uploaded to PyPI.
+Paths 1–3 and 5 all assume a Python interpreter is already on the target
+machine (a "framework-dependent" deployment); Path 4 bundles the
+interpreter itself (a "self-contained" deployment) and is distributed
+directly — zipped, attached to a release, handed over on a USB stick —
+never uploaded to PyPI. Path 5 is the Unix/Raspberry Pi counterpart to
+conda on Windows: NowcastingCLI's wheel is pure Python (`py3-none-any`),
+so the same wheel installs unmodified on ARM — no PyInstaller rebuild or
+conda/miniforge overhead needed, and `pipx` avoids Debian's PEP 668
+`externally-managed-environment` guard that blocks a bare `pip install`.
 
 ---
 

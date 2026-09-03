@@ -3,8 +3,9 @@
 > Part of: Claude Code for Python Developers: Hands-On Agentic Coding
 > Project: NowcastingCLI (`CCPD-nowcastingcli`)
 > Prerequisite for: Module 7 (CI/CD) — CI automates exactly the manual steps here.
-> **Status: hands-on completed and verified** (fresh-env wheel install, fresh-env
-> sdist install, and standalone `.exe` all tested and passing).
+> **Status: fully complete and verified** (fresh-env wheel install, fresh-env
+> sdist install, standalone `.exe`, and TestPyPI upload/install all tested
+> and passing).
 
 **Repo state note:** at the close of this module, the current single
 branch will be renamed `develop`, and a new `main` branch will be created
@@ -141,21 +142,84 @@ GitHub Actions authenticates to PyPI via short-lived OIDC tokens — no API
 key stored anywhere, configured once on pypi.org against your repo. This is
 what Module 7's `build-and-publish` job uses.
 
+### 4.1 One-time setup: TestPyPI account and API token
+
+TestPyPI (`test.pypi.org`) is a **completely separate account system**
+from real PyPI (`pypi.org`) — different login, different database, nothing
+carries over. Needed once, before the first manual upload:
+
+1. Register at https://test.pypi.org/account/register/. Use a real email —
+   verification is required before token creation. 2FA is mandatory for
+   upload permissions.
+2. Verify the email (check inbox for the confirmation link).
+3. Generate a token at https://test.pypi.org/manage/account/#api-tokens →
+   "Add API token". Scope to **"Entire account"** for the first upload —
+   you can't scope to a specific project until that project exists on
+   TestPyPI. Copy the token immediately; it's shown only once and starts
+   with `pypi-`.
+
+### 4.2 Locating `$HOME` on Windows (for `~/.pypirc`)
+
+The token is stored in a `.pypirc` file, which `twine` reads from the
+user's home directory — but `~` isn't a native Windows concept, so it's
+worth knowing how to find the actual path. Any of these work:
+
+| Method | Command |
+|---|---|
+| Command Prompt | `echo %USERPROFILE%` |
+| PowerShell | `echo $env:USERPROFILE` or `$HOME` |
+| File Explorer | type `%USERPROFILE%` in the address bar, press Enter |
+
+In this setup, `$HOME` resolved to `C:\Users\juaqu`, so the file lives at
+`C:\Users\juaqu\.pypirc`.
+
+### 4.3 `~/.pypirc` contents
+
+```ini
+[testpypi]
+username = __token__
+password = pypi-<paste-your-token-here>
+```
+
+The literal username `__token__` is required — it tells `twine` to treat
+the password field as an API token rather than a real password. This file
+lives outside the repo, so no `.gitignore` entry is needed, but never paste
+the token into any tracked file.
+
+### 4.4 Upload
+
 **Token-based upload (manual, for this module):**
 ```bash
+conda activate nowcasting-cli
 pip install twine --break-system-packages
 python -m twine upload --repository testpypi dist/*
 # then, once verified:
 python -m twine upload dist/*
 ```
-Requires an API token from TestPyPI/PyPI stored in `~/.pypirc` or passed via
-env var — acceptable for manual/local publishing, but this is exactly the
-secret-management burden Trusted Publishing removes once CI takes over.
+This is exactly the secret-management burden Trusted Publishing removes
+once Module 7's CI takes over — no token file to maintain once GitHub
+Actions authenticates via short-lived OIDC instead.
 
-**Install from TestPyPI to verify:**
+**Verified:** upload succeeded; package live at
+`https://test.pypi.org/project/nowcastingcli/0.6.0/`.
+
+### 4.5 Install from TestPyPI to verify
+
 ```bash
-pip install --index-url https://test.pypi.org/simple/ nowcastingcli
+conda create -n nowcast-testpypi python=3.11
+conda activate nowcast-testpypi
+pip install --index-url https://test.pypi.org/simple/ \
+    --extra-index-url https://pypi.org/simple/ nowcastingcli
+nowcastingcli
 ```
+
+**Important:** the `--extra-index-url https://pypi.org/simple/` flag is
+required. TestPyPI only hosts packages uploaded there directly — `rich` and
+`python-json-logger` (this project's real dependencies) live on real PyPI,
+not TestPyPI. Without this flag, dependency resolution fails even though
+the upload itself succeeded.
+
+**Verified:** installed cleanly into a fresh env and `nowcastingcli` runs.
 
 ---
 
@@ -387,7 +451,72 @@ JSON-formatter resolution), tested via Option 1.
 
 ---
 
-## 8. Standalone Package Checklist
+## 8. Manual Delivery Path 5 — Unix / Raspberry Pi (`pipx`)
+
+Paths 1–4 above were developed and verified on Windows. Distribution to a
+Unix target — specifically Raspberry Pi OS on a Raspberry Pi — has a
+different set of trade-offs worth walking through rather than assuming the
+Windows approach transfers directly.
+
+**Architecture is a non-issue for this project.** Raspberry Pi is ARM
+(`aarch64` on 64-bit Raspberry Pi OS, `armv7l` on 32-bit). NowcastingCLI's
+wheel is `py3-none-any` — pure Python, no compiled extensions — so the
+exact same wheel built on Windows installs identically on ARM. No rebuild
+needed.
+
+**Why not the Windows approaches:**
+- **PyInstaller doesn't cross-compile.** The Windows `.exe` from Path 4 is
+  useless on the Pi — a standalone binary would have to be rebuilt *on*
+  ARM hardware. Since the wheel already works cross-platform, this adds
+  complexity for no benefit here.
+- **conda/miniforge on ARM** works, but has more friction and thinner
+  community testing than on x86_64, and is a heavier tool than needed for
+  a project with only two pure-Python dependencies (`rich`,
+  `python-json-logger`). Reasonable only if you want dev-env parity with
+  the Windows workflow (e.g. also editing code on the Pi).
+- **Plain `pip install`** fights current Raspberry Pi OS's PEP 668
+  `externally-managed-environment` guard (Debian-based distros now block
+  bare `pip install` into system Python) without extra flags, and doesn't
+  give clean per-package isolation/upgrade/uninstall.
+
+**Recommendation: `pipx`.** Purpose-built for exactly this case — a global,
+isolated CLI tool install, without conda:
+
+```bash
+# One-time setup
+sudo apt update
+sudo apt install pipx
+pipx ensurepath
+# close/reopen terminal, or: source ~/.bashrc
+
+# Install the CLI (once published to real PyPI)
+pipx install nowcastingcli
+
+# For now, from TestPyPI:
+pipx install --index-url https://test.pypi.org/simple/ \
+    --pip-args="--extra-index-url https://pypi.org/simple/" nowcastingcli
+
+# Run it — same command as everywhere else
+nowcastingcli
+
+# Upgrade / remove cleanly
+pipx upgrade nowcastingcli
+pipx uninstall nowcastingcli
+```
+
+`pipx` creates a dedicated, isolated venv per package under the hood but
+exposes the command directly on `PATH` — the venv itself is never seen or
+managed manually. It's the Linux-native equivalent purpose of what conda
+provides on Windows for this project, without conda's setup overhead, and
+it tracks upgrades/removal per-package automatically (no "which env was
+this in again?" bookkeeping).
+
+`pipx` is packaged directly in Raspberry Pi OS's `apt` repos — no bootstrap
+step, no separate installer.
+
+---
+
+## 9. Standalone Package Checklist
 
 A build is genuinely ready for another machine when:
 
@@ -402,6 +531,10 @@ A build is genuinely ready for another machine when:
       only show up when building from source
 - [x] (Optional path) Standalone `.exe` built via PyInstaller runs cleanly
       on a machine/env with no Python installed
+- [x] Package installs correctly from TestPyPI into a fresh env
+- [ ] (Optional path) `pipx install` verified on an actual Raspberry Pi /
+      Unix target — approach documented, not yet hands-on tested on real
+      Pi hardware
 
 ---
 
@@ -410,9 +543,13 @@ A build is genuinely ready for another machine when:
 - [x] Add `[project.scripts]` entry point to NowcastingCLI's `pyproject.toml`
 - [x] Run `python -m build`, inspect `dist/` contents
 - [x] Install the wheel into a fresh conda env, verify `nowcastingcli` runs
-- [ ] Upload to TestPyPI manually with `twine`, install from TestPyPI into
+- [x] Upload to TestPyPI manually with `twine`, install from TestPyPI into
       a second fresh env
 - [x] Confirm `__version__` resolves via `importlib.metadata.version()`
       rather than a hardcoded string
 - [x] (Extra) Build and verify a standalone `.exe` via PyInstaller as an
       alternative delivery path for machines without Python installed
+
+**Module 6 complete.** Next: Module 7 (GitHub Actions CI/CD) — branch rename
+to `develop`/`main`, `smoke-tests.yml`, `release.yml`, Trusted Publishing via
+OIDC. Design was drafted in an earlier session but not yet executed hands-on.
