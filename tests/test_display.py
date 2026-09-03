@@ -176,8 +176,12 @@ def test_trend_arrow_custom_threshold():
 # The mock_console fixture (autouse) handles suppressing terminal output.
 # ---------------------------------------------------------------------------
 
+@pytest.mark.smoke
 def test_render_dashboard_single_observation_does_not_raise():
-    """Smoke test: one observation, no crash.
+    """One observation, no crash.
+
+    Smoke: Rich rendering bugs are otherwise invisible until someone runs
+    the CLI by hand — this catches a broken render_dashboard() in CI.
 
     Run: pytest tests/test_display.py::test_render_dashboard_single_observation_does_not_raise -v
     """

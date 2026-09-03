@@ -18,6 +18,11 @@ where = ["."]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=nowcastingcli --cov-fail-under=80"
+markers = [
+    #"integration: mark a test as an integration test.",
+    #"unit: mark a test as a unit test.",
+    "smoke: fast subset run on every push/PR to develop",
+]
 
 [project.optional-dependencies]
 docs = [

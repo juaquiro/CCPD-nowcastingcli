@@ -62,8 +62,12 @@ def _obs(**overrides):
 
 # --- __post_init__ validation ---
 
+@pytest.mark.smoke
 def test_valid_observation_is_created():
     """Happy path: all fields in range, no exception raised.
+
+    Smoke: confirms the Observation dataclass still constructs at all —
+    every other module and test depends on this succeeding.
 
     Run: pytest tests/test_models.py::test_valid_observation_is_created -v
     """

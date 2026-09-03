@@ -22,8 +22,15 @@ def make_obs(pressure_qnh: float, humidity: float, temperature: float = 15.0, mi
 
 # --- Insufficient data ---
 
+@pytest.mark.smoke
 def test_single_observation_returns_stable():
-    """Run: pytest tests/test_heuristics.py::test_single_observation_returns_stable -v"""
+    """Single reading, no trend possible yet.
+
+    Smoke: confirms assess_conditions() runs without error and returns a
+    sane default when there isn't enough history for a real verdict.
+
+    Run: pytest tests/test_heuristics.py::test_single_observation_returns_stable -v
+    """
     obs = [make_obs(1013.0, 60.0)]
     verdict, _ = assess_conditions(obs)
     assert verdict == STABLE

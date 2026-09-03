@@ -6,16 +6,24 @@ from nowcastingcli.physics import normalize_pressure
 
 # --- Basic correctness ---
 
+@pytest.mark.smoke
 def test_sea_level_returns_input():
     """At altitude=0, QNH should equal raw pressure.
+
+    Smoke: identity case for normalize_pressure() — if this breaks, the
+    core formula is broken for every other call site in the app.
 
     Run: pytest tests/test_physics.py::test_sea_level_returns_input -v
     """
     assert normalize_pressure(1013.25, altitude_m=0.0, temperature_c=15.0) == pytest.approx(1013.25, rel=1e-4)
 
 
+@pytest.mark.smoke
 def test_positive_altitude_increases_qnh():
     """Station above sea level → QNH > raw pressure.
+
+    Smoke: catches a sign error in the correction exponent — the most
+    common way to break this formula while refactoring.
 
     Run: pytest tests/test_physics.py::test_positive_altitude_increases_qnh -v
     """
@@ -38,10 +46,14 @@ def test_qnh_increases_with_altitude(altitude, expected_min):
     qnh = normalize_pressure(1013.25, altitude_m=altitude, temperature_c=15.0)
     assert qnh >= expected_min - 10  # loose: direction test, not exact table
 
+@pytest.mark.smoke
 def test_known_value_burgos():
     """
     Burgos is ~856m ASL. At 15°C, 950 hPa raw → ~1052 hPa QNH approx.
     Tolerance loose — we're testing the formula, not ICAO tables.
+
+    Smoke: anchors the formula to a real-world reference value, not just
+    directional/identity checks — catches magnitude errors those miss.
 
     Run: pytest tests/test_physics.py::test_known_value_burgos -v
     """
