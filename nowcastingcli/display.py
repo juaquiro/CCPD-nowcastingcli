@@ -8,7 +8,7 @@ from rich import box
 from .models import Observation, OBSERVATION_UNITS
 from .heuristics import WORSENING, IMPROVING, STABLE, assess_conditions
 
-# setup_logging() is called in main.py before this module is imported — handlers already registered.
+# setup_logging()  is called in main.py before this module is imported — handlers already registered.
 import logging
 logger = logging.getLogger(__name__)
 
