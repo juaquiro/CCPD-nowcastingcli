@@ -15,7 +15,7 @@ def test_sea_level_returns_input():
 
     Run: pytest tests/test_physics.py::test_sea_level_returns_input -v
     """
-    assert normalize_pressure(1013.25, altitude_m=0.0, temperature_c=15.0) == pytest.approx(9999.0, rel=1e-4)
+    assert normalize_pressure(1013.25, altitude_m=0.0, temperature_c=15.0) == pytest.approx(1013.25, rel=1e-4)
 
 
 @pytest.mark.smoke
