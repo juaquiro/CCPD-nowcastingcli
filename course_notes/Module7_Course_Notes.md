@@ -222,6 +222,69 @@ No PR overhead for solo trivial changes.
 - Fires: `push → develop` (smoke test, confirmation-only — nothing to
   gate since there's no PR).
 
+**Verified end-to-end:** committed the `smoke` marker + `smoke-tests.yml`
+itself directly to `develop`; `push → develop` fired as a confirmation-only
+run (no PR involved, nothing to gate); confirmed green.
+
+#### Notification methods for a `push → develop` result
+
+Because a direct push has no PR to block, the only thing standing between
+you and an unnoticed red run is whichever of these you're actually using.
+Ranked most passive → most immediate:
+
+1. **GitHub notifications (passive, default-on for most people).**
+   If Actions notifications are enabled under
+   `https://github.com/settings/notifications` → "Actions", a failed run
+   on a branch you pushed to sends an email/web notification automatically.
+   Worth confirming it's actually on — this is the safety net for when you
+   forget to watch a run.
+
+2. **A status badge in `README.md` (passive, always visible).**
+   ```markdown
+   ![Smoke Tests](https://github.com/<owner>/<repo>/actions/workflows/smoke-tests.yml/badge.svg?branch=develop)
+   ```
+   Reflects the most recently *completed* run on `develop` — good for
+   at-a-glance repo health, not useful mid-push since it won't update
+   until the run finishes and you refresh.
+
+3. **Watch it live right after pushing (active, immediate).**
+   `gh run watch` with no ID picks a run interactively, but called
+   immediately after `git push` it can race GitHub's API (run not
+   registered yet) and either error or pick up a stale prior run. The
+   reliable version pins the run ID explicitly:
+   ```bash
+   git push origin develop
+   sleep 2
+   RUN_ID=$(gh run list --branch develop --workflow "Smoke Tests" \
+     --limit 1 --json databaseId -q '.[0].databaseId')
+   gh run watch "$RUN_ID" --exit-status
+   ```
+   `--exit-status` makes the command itself exit non-zero on failure, so
+   it chains (`&& echo "safe to continue"`) or scripts cleanly. Worth
+   wrapping in a shell function (e.g. `pushdev`) if pushing to `develop`
+   directly is a regular habit.
+
+4. **Pull the result explicitly, on demand.**
+   ```bash
+   gh run list --branch develop --workflow "Smoke Tests" --limit 1
+   ```
+   Same mechanism as watching, just without the wait — useful when
+   checking back later rather than blocking on the push.
+
+For a suite this fast (smoke run completes in well under a minute),
+**option 3 is the everyday default** — no dependence on notification
+settings, definitive pass/fail in-terminal within seconds. Option 1 is
+the safety net for pushes made without watching. Option 2 is a nice-to-have
+for repo visibility, not a substitute for 1/3. Option 4 is rarely needed
+once 3 is habitual, since it answers the same question with no time
+advantage.
+
+Unlike a NAnt/Jenkins-style pipeline where a broken build interrupts you
+with a red console by default, GitHub Actions has no equivalent
+interruption mechanism for a solo dev outside of the above — the
+`pushdev`-style wrapper in option 3 is what manufactures that
+"don't proceed until green" discipline yourself.
+
 ### Scenario 2 — Feature Work
 Branch from `develop` (`feature/xyz`), implement, open PR into `develop`.
 - Fires: `pull_request → develop` (smoke test, **gate** — required check).
@@ -286,7 +349,9 @@ pipeline to a different build/CI system.
       repository's default branch
 - [x] Set branch protection on `main` (PR required, no force pushes, no
       deletions, admin bypass allowed)
-- [ ] Add `smoke` pytest marker + `smoke-tests.yml`
+- [x] Add `smoke` pytest marker + `smoke-tests.yml`
+- [x] Walk Scenario 1 (direct push to `develop`, confirmation-only run)
+      end-to-end, confirm green; document notification methods (§7)
 - [ ] Set branch protection on `develop` requiring the smoke check
 - [ ] Write `release.yml` with the `pull_request`/`push` split and the
       `if: github.event_name == 'push'` guard

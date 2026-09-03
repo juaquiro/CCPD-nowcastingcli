@@ -1,5 +1,7 @@
 # NowcastingCLI
 
+[![Smoke Tests](https://github.com/juaquiro/CCPD-nowcastingcli/actions/workflows/smoke-tests.yml/badge.svg?branch=develop)](https://github.com/juaquiro/CCPD-nowcastingcli/actions/workflows/smoke-tests.yml)
+
 A terminal-based weather nowcasting CLI built with Python and [Rich](https://github.com/Textualize/rich).
 
 ---
