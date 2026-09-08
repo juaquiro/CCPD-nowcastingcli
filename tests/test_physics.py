@@ -102,8 +102,13 @@ def test_negative_pressure_raises():
         normalize_pressure(-10.0, altitude_m=100.0, temperature_c=15.0)
 
 
+@pytest.mark.smoke
 def test_altitude_above_limit_raises():
     """altitude_m > 5000 exceeds the ISA troposphere model — must raise ValueError.
+
+    Smoke: guards the input-validation path, not just the formula — if this
+    regresses, out-of-model altitudes silently produce bogus QNH values
+    instead of failing loudly.
 
     Run: pytest tests/test_physics.py::test_altitude_above_limit_raises -v
     """
