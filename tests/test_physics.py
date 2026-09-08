@@ -113,7 +113,7 @@ def test_altitude_above_limit_raises():
     Run: pytest tests/test_physics.py::test_altitude_above_limit_raises -v
     """
     with pytest.raises(ValueError, match="altitude_m"):
-        normalize_pressure(1013.25, altitude_m=4001.0, temperature_c=15.0)
+        normalize_pressure(1013.25, altitude_m=5001.0, temperature_c=15.0)
 
 
 def test_altitude_at_limit_is_accepted():
