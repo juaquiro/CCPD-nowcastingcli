@@ -248,6 +248,22 @@ publishing job — GitHub mints a short-lived OIDC token, PyPI verifies it
 against the registered repo/workflow, publish proceeds. This is the modern
 replacement for token-in-secrets upload from Module 6.
 
+**Registered in this project (pending publisher, since `nowcastingcli`
+hasn't been published to real PyPI yet):**
+
+| Field | Value |
+|---|---|
+| PyPI Project Name | `nowcastingcli` |
+| Owner | `juaquiro` |
+| Repository | `CCPD-nowcastingcli` |
+| Workflow filename | `release.yml` |
+| Environment | *(none)* |
+
+A pending publisher pre-authorizes only the *first* successful publish;
+once that lands, PyPI converts it into the project's normal trusted
+publisher automatically — no further action needed. Nothing to verify
+from the CLI side until Step 10's actual publish attempt exercises it.
+
 ---
 
 ## 7. The Four Working Scenarios
@@ -326,6 +342,16 @@ Branch from `develop` (`feature/xyz`), implement, open PR into `develop`.
 - Fires: `pull_request → develop` (smoke test, **gate** — required check).
 - On merge, fires: `push → develop` (confirmation run).
 
+**Verified end-to-end:** `feature/smoke-humidity-check` branched from
+`develop`, added a 4th smoke test (humidity range validation), opened PR
+via `gh pr create --base develop`. `pull_request → develop` smoke check
+ran as a required gate — confirmed via `gh pr checks --watch`; merge
+blocked until green. On `gh pr merge --squash --delete-branch`, the
+merge itself fired `push → develop` automatically as the post-merge
+confirmation run. This is the first real (not simulated) confirmation
+that branch protection's required-check gate actually blocks, not just
+that it's configured.
+
 ### Scenario 3 — Build / Release
 PR from `develop` into `main`.
 - Fires: `pull_request → main` (full suite + coverage + docs — **gate**,
@@ -394,8 +420,9 @@ pipeline to a different build/CI system.
       inert there until a `develop → main` PR exercises it)
 - [ ] Add the `full-suite` check to `main`'s branch protection as a
       required status check (protection rule itself already exists)
-- [ ] Register PyPI Trusted Publisher for the repo + `release.yml`
-- [ ] Walk a real feature branch through Scenario 2 end-to-end
+- [x] Register PyPI Trusted Publisher for the repo + `release.yml`
+      (pending publisher — activates on first successful publish)
+- [x] Walk a real feature branch through Scenario 2 end-to-end
 - [ ] Walk a `develop → main` PR through Scenario 3 end-to-end, confirm
       auto-tag/release/publish fires correctly
 - [ ] (Optional, for understanding only) simulate Scenario 4 — branch a
