@@ -39,6 +39,6 @@ class Observation:
     def __post_init__(self):
         if not (0 <= self.humidity <= 100):
             raise ValueError(f"humidity out of range: {self.humidity}")
-        if self.pressure_raw < 0:
+        if self.pressure_raw <= 0:
             raise ValueError(f"invalid pressure: {self.pressure_raw}")
 
