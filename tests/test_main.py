@@ -115,13 +115,17 @@ def test_run_quits_on_uppercase_Q():
     with patch("nowcastingcli.main.Prompt.ask", return_value="Q"):
         run()
 
-
+@pytest.mark.smoke
 def test_run_one_full_observation_cycle():
     """One valid reading is stored and the dashboard is rendered once, then 'q' exits.
 
     The five side_effect values map to the five Prompt.ask calls:
       "1013.25" → pressure, "20.0" → temperature, "50.0" → humidity,
       "100.0"   → altitude, "q"    → second pressure prompt (quit).
+
+    Smoke: only test that wires input → models → physics → heuristics →
+    display together end-to-end; a failure here means the app is broken
+    even if every unit test elsewhere passes.
 
     Run: pytest tests/test_main.py::test_run_one_full_observation_cycle -v
     """

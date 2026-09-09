@@ -40,6 +40,30 @@ NAnt's own conditional task attributes or a wrapping script.
 This is a deliberate rename from an earlier draft (`main`=dev, `build`=release)
 specifically to avoid fighting GitHub's built-in conventions.
 
+**Implementation in this repo:**
+
+- `develop` was branched off the tip of the original single-branch `main`
+  (so it started with full history, nothing lost) and pushed to `origin`.
+- `develop` was then set as the repository's **default branch**
+  (Settings → General → Default branch, or `gh api -X PATCH
+  repos/{owner}/{repo} --field default_branch=develop`). New clones,
+  new PRs, and the branch shown by default on GitHub now point at
+  `develop`, matching its role as the everyday integration branch.
+- `main` was locked down with a branch protection rule (`gh api -X PUT
+  repos/{owner}/{repo}/branches/main/protection`):
+  - Pull request required to merge (`required_pull_request_reviews`,
+    `required_approving_review_count: 0` — a PR is mandatory, but a solo
+    maintainer doesn't need a second reviewer to approve their own PR).
+  - `allow_force_pushes: false` — history on `main` can't be rewritten.
+  - `allow_deletions: false` — the branch can't be deleted.
+  - `enforce_admins: false` — the repo admin can still bypass protection
+    in an emergency (e.g., a hotfix that can't wait), rather than being
+    locked out entirely.
+- Net effect: `git push origin main` now fails for everyone, including the
+  admin, unless they explicitly bypass protection; the only supported path
+  onto `main` is a merged pull request from `develop` (or a `hotfix/*`
+  branch, see Scenario 4).
+
 ---
 
 ## 3. Workflow 1 — `smoke-tests.yml`
@@ -86,6 +110,23 @@ markers = ["smoke: fast subset run on every push/PR to develop"]
 
 ## 4. Workflow 2 — `release.yml`
 
+**Status: committed to `develop`** (inert there — only triggers on
+`pull_request`/`push` to `main`; won't actually run until Step 8's
+`develop → main` PR exercises it). Two fixes applied beyond this draft,
+both needed for the workflow to run at all on a fresh runner:
+
+- `tag-and-release` needs `env: { GH_TOKEN: ${{ github.token }} }` on the
+  tagging step — `gh release create` requires an authenticated `gh` CLI;
+  the run-scoped `github.token` covers it with no secret to configure.
+- `build-and-publish` runs on its own fresh runner (jobs don't share
+  environment within a workflow run) and needs `actions/setup-python@v5`
+  + `pip install build` before `python -m build` — neither Python nor
+  the `build` package is present by default.
+
+`pyproject.toml`'s `[project].version` is confirmed a static string
+(`"0.6.0"` as of Module 7 work), not `setuptools_scm`-managed, so the
+`tomllib`-based version extraction below works unmodified.
+
 ```yaml
 name: Release Pipeline
 on:
@@ -122,6 +163,8 @@ jobs:
           git tag "v$VERSION"
           git push origin "v$VERSION"
           gh release create "v$VERSION" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}    # gh CLI needs auth; run-scoped, no secret
 
   build-and-publish:
     needs: tag-and-release
@@ -130,6 +173,9 @@ jobs:
     permissions: { id-token: write }        # PyPI Trusted Publishing (OIDC)
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5      # fresh runner, needs its own Python
+        with: { python-version: "3.x" }
+      - run: pip install build
       - run: python -m build
       - uses: pypa/gh-action-pypi-publish@release/v1
 ```
@@ -155,15 +201,41 @@ just runs tests/coverage/docs — no spurious release.
 
 ## 5. Branch Protection Rules
 
-Configured in GitHub UI (Settings → Branches), not in YAML:
+Configured in GitHub UI (Settings → Branches) or via `gh api`, not in YAML:
 
 - **`develop`:** require the `smoke` check to pass before merge; require
   branches to be up to date before merging (forces re-check against
   current tip, shrinking the gap the `push`-triggered confirmation run
   exists to catch).
 - **`main`:** require the `full-suite` check (from the `pull_request`
-  trigger) to pass before merge; same up-to-date requirement; consider
-  requiring a PR (no direct pushes) given `main` triggers publishing.
+  trigger) to pass before merge; same up-to-date requirement; require a PR
+  (no direct pushes) given `main` triggers publishing.
+
+**Currently applied in this repo** (status-check requirements above are the
+target once `smoke-tests.yml`/`release.yml` exist and report check runs —
+not yet added; see Exercise Checklist):
+
+| Setting | `main` |
+|---|---|
+| Pull request required to merge | Yes (`required_approving_review_count: 0`) |
+| Required status checks | Not yet configured (no workflow files yet) |
+| Force pushes | Blocked |
+| Branch deletion | Blocked |
+| Admin enforcement | Off — admin can bypass in an emergency |
+
+**Currently applied in this repo — `develop`:**
+
+Branch protection is now live on `develop`:
+- Required status check: `smoke`, `strict: true` (branch must be up to
+  date before merge)
+- Required PR before merge: enabled, 0 required approvals
+- `enforce_admins: false` — as owner, direct pushes from you still work;
+  non-admin collaborators must go through a PR that only merges once
+  `smoke` is green
+- Force-pushes and branch deletion: both blocked
+
+Verify anytime with `gh api repos/{owner}/{repo}/branches/develop/protection`,
+or GitHub → Settings → Branches in the UI.
 
 ---
 
@@ -176,6 +248,22 @@ publishing job — GitHub mints a short-lived OIDC token, PyPI verifies it
 against the registered repo/workflow, publish proceeds. This is the modern
 replacement for token-in-secrets upload from Module 6.
 
+**Registered in this project (pending publisher, since `nowcastingcli`
+hasn't been published to real PyPI yet):**
+
+| Field | Value |
+|---|---|
+| PyPI Project Name | `nowcastingcli` |
+| Owner | `juaquiro` |
+| Repository | `CCPD-nowcastingcli` |
+| Workflow filename | `release.yml` |
+| Environment | *(none)* |
+
+A pending publisher pre-authorizes only the *first* successful publish;
+once that lands, PyPI converts it into the project's normal trusted
+publisher automatically — no further action needed. Nothing to verify
+from the CLI side until Step 10's actual publish attempt exercises it.
+
 ---
 
 ## 7. The Four Working Scenarios
@@ -186,10 +274,83 @@ No PR overhead for solo trivial changes.
 - Fires: `push → develop` (smoke test, confirmation-only — nothing to
   gate since there's no PR).
 
+**Verified end-to-end:** committed the `smoke` marker + `smoke-tests.yml`
+itself directly to `develop`; `push → develop` fired as a confirmation-only
+run (no PR involved, nothing to gate); confirmed green.
+
+#### Notification methods for a `push → develop` result
+
+Because a direct push has no PR to block, the only thing standing between
+you and an unnoticed red run is whichever of these you're actually using.
+Ranked most passive → most immediate:
+
+1. **GitHub notifications (passive, default-on for most people).**
+   If Actions notifications are enabled under
+   `https://github.com/settings/notifications` → "Actions", a failed run
+   on a branch you pushed to sends an email/web notification automatically.
+   Worth confirming it's actually on — this is the safety net for when you
+   forget to watch a run.
+
+2. **A status badge in `README.md` (passive, always visible).**
+   ```markdown
+   ![Smoke Tests](https://github.com/<owner>/<repo>/actions/workflows/smoke-tests.yml/badge.svg?branch=develop)
+   ```
+   Reflects the most recently *completed* run on `develop` — good for
+   at-a-glance repo health, not useful mid-push since it won't update
+   until the run finishes and you refresh.
+
+3. **Watch it live right after pushing (active, immediate).**
+   `gh run watch` with no ID picks a run interactively, but called
+   immediately after `git push` it can race GitHub's API (run not
+   registered yet) and either error or pick up a stale prior run. The
+   reliable version pins the run ID explicitly:
+   ```bash
+   git push origin develop
+   sleep 2
+   RUN_ID=$(gh run list --branch develop --workflow "Smoke Tests" \
+     --limit 1 --json databaseId -q '.[0].databaseId')
+   gh run watch "$RUN_ID" --exit-status
+   ```
+   `--exit-status` makes the command itself exit non-zero on failure, so
+   it chains (`&& echo "safe to continue"`) or scripts cleanly. Worth
+   wrapping in a shell function (e.g. `pushdev`) if pushing to `develop`
+   directly is a regular habit.
+
+4. **Pull the result explicitly, on demand.**
+   ```bash
+   gh run list --branch develop --workflow "Smoke Tests" --limit 1
+   ```
+   Same mechanism as watching, just without the wait — useful when
+   checking back later rather than blocking on the push.
+
+For a suite this fast (smoke run completes in well under a minute),
+**option 3 is the everyday default** — no dependence on notification
+settings, definitive pass/fail in-terminal within seconds. Option 1 is
+the safety net for pushes made without watching. Option 2 is a nice-to-have
+for repo visibility, not a substitute for 1/3. Option 4 is rarely needed
+once 3 is habitual, since it answers the same question with no time
+advantage.
+
+Unlike a NAnt/Jenkins-style pipeline where a broken build interrupts you
+with a red console by default, GitHub Actions has no equivalent
+interruption mechanism for a solo dev outside of the above — the
+`pushdev`-style wrapper in option 3 is what manufactures that
+"don't proceed until green" discipline yourself.
+
 ### Scenario 2 — Feature Work
 Branch from `develop` (`feature/xyz`), implement, open PR into `develop`.
 - Fires: `pull_request → develop` (smoke test, **gate** — required check).
 - On merge, fires: `push → develop` (confirmation run).
+
+**Verified end-to-end:** `feature/smoke-humidity-check` branched from
+`develop`, added a 4th smoke test (humidity range validation), opened PR
+via `gh pr create --base develop`. `pull_request → develop` smoke check
+ran as a required gate — confirmed via `gh pr checks --watch`; merge
+blocked until green. On `gh pr merge --squash --delete-branch`, the
+merge itself fired `push → develop` automatically as the post-merge
+confirmation run. This is the first real (not simulated) confirmation
+that branch protection's required-check gate actually blocks, not just
+that it's configured.
 
 ### Scenario 3 — Build / Release
 PR from `develop` into `main`.
@@ -246,14 +407,22 @@ pipeline to a different build/CI system.
 
 ## Exercise Checklist
 
-- [ ] Rename current default branch to `develop`; create `main`
-- [ ] Add `smoke` pytest marker + `smoke-tests.yml`
-- [ ] Set branch protection on `develop` requiring the smoke check
-- [ ] Write `release.yml` with the `pull_request`/`push` split and the
-      `if: github.event_name == 'push'` guard
-- [ ] Set branch protection on `main` requiring the full-suite check
-- [ ] Register PyPI Trusted Publisher for the repo + `release.yml`
-- [ ] Walk a real feature branch through Scenario 2 end-to-end
+- [x] Branch `develop` off the existing `main`; set `develop` as the
+      repository's default branch
+- [x] Set branch protection on `main` (PR required, no force pushes, no
+      deletions, admin bypass allowed)
+- [x] Add `smoke` pytest marker + `smoke-tests.yml`
+- [x] Walk Scenario 1 (direct push to `develop`, confirmation-only run)
+      end-to-end, confirm green; document notification methods (§7)
+- [x] Set branch protection on `develop` requiring the smoke check
+- [x] Write `release.yml` with the `pull_request`/`push` split and the
+      `if: github.event_name == 'push'` guard (committed to `develop`;
+      inert there until a `develop → main` PR exercises it)
+- [ ] Add the `full-suite` check to `main`'s branch protection as a
+      required status check (protection rule itself already exists)
+- [x] Register PyPI Trusted Publisher for the repo + `release.yml`
+      (pending publisher — activates on first successful publish)
+- [x] Walk a real feature branch through Scenario 2 end-to-end
 - [ ] Walk a `develop → main` PR through Scenario 3 end-to-end, confirm
       auto-tag/release/publish fires correctly
 - [ ] (Optional, for understanding only) simulate Scenario 4 — branch a
