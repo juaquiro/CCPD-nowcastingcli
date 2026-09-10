@@ -578,8 +578,26 @@ pipeline to a different build/CI system.
 - [x] Walk a `develop → main` PR through Scenario 3 end-to-end, confirm
       auto-tag/release/publish fires correctly — `v0.6.1` tagged,
       released on GitHub, and published to PyPI via Trusted Publishing
-- [ ] (Optional, for understanding only) simulate Scenario 4 — branch a
-      hotfix from `main`, confirm the back-merge-to-`develop` step
+- [x] (Optional, for understanding only) simulate Scenario 4 — branch a
+      hotfix from `main`, confirm the back-merge-to-`develop` step —
+      executed: hotfix merged into `main` (0.6.2), back-merge PR
+      (`merge-main-into-develop`) run via real merge commit
+      (`gh pr merge --merge --delete-branch`), `develop` now carries
+      the hotfix and version 0.6.2
+
+**Final Module 7 tasks (added at end of session, not yet started):**
+- [ ] Document install/run of the deployed app from real PyPI (`pip install
+      nowcastingcli` from a clean env, confirm entry point runs) — distinct
+      from Module 6's TestPyPI-only install walkthrough
+- [ ] Document how to check the deployed app's documentation (where MkDocs
+      output is published/hosted, if anywhere yet — GitHub Pages not yet
+      configured per §8, so this may surface that gap)
+- [ ] Document granting repo access to a third-party collaborator with
+      contributor-level (non-admin) rights — GitHub role model (Read/
+      Triage/Write/Maintain/Admin), which role fits "can open PRs and
+      push to non-protected branches but can't change branch protection
+      or repo settings," and whether to use direct collaborator invite
+      vs. a team (if repo is under an org)
 
 **Follow-up (non-blocking, logged from Scenario 3's first real run):**
 - [ ] Bump `actions/checkout`, `actions/setup-python`, and
