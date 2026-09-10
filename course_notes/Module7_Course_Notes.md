@@ -141,7 +141,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-      - run: pip install -e .[dev]
+      - run: pip install -e .[dev,docs]
       - run: pytest --cov --cov-report=xml
       - uses: actions/upload-artifact@v4
         with: { name: coverage, path: coverage.xml }
@@ -211,17 +211,21 @@ Configured in GitHub UI (Settings → Branches) or via `gh api`, not in YAML:
   trigger) to pass before merge; same up-to-date requirement; require a PR
   (no direct pushes) given `main` triggers publishing.
 
-**Currently applied in this repo** (status-check requirements above are the
-target once `smoke-tests.yml`/`release.yml` exist and report check runs —
-not yet added; see Exercise Checklist):
+**Currently applied in this repo:**
 
 | Setting | `main` |
 |---|---|
 | Pull request required to merge | Yes (`required_approving_review_count: 0`) |
-| Required status checks | Not yet configured (no workflow files yet) |
+| Required status checks | **`full-suite`**, `strict: true` — added after Scenario 3's PR gave GitHub a `full-suite` run to reference against `main` (a check can only be required once it has reported at least once on that branch) |
 | Force pushes | Blocked |
 | Branch deletion | Blocked |
 | Admin enforcement | Off — admin can bypass in an emergency |
+
+Only `full-suite` is required, not `tag-and-release`/`build-and-publish`
+— those two only ever fire on the `push` event (guarded by
+`if: github.event_name == 'push'`), so they never run on the
+`pull_request` event a required check actually gates against; requiring
+them would deadlock every PR.
 
 **Currently applied in this repo — `develop`:**
 
@@ -352,12 +356,102 @@ confirmation run. This is the first real (not simulated) confirmation
 that branch protection's required-check gate actually blocks, not just
 that it's configured.
 
+> **`--delete-branch` caution:** it deletes the PR's *head* branch, not
+> a fixed "feature branch" concept. Safe here because the head was the
+> throwaway `feature/smoke-humidity-check`. In Scenario 3 (`develop → main`)
+> the head branch *is* `develop` — never pass `--delete-branch` there, or
+> the integration branch itself gets deleted. Check which branch is the
+> head before reaching for this flag out of habit.
+
 ### Scenario 3 — Build / Release
 PR from `develop` into `main`.
 - Fires: `pull_request → main` (full suite + coverage + docs — **gate**,
   required check, no release/publish here).
 - On merge, fires: `push → main` (full suite again, then tag, release,
   publish).
+
+**In progress — first real run surfaced two stacked bugs, both fixed by
+pushing to `develop` (which auto-updates the open PR's head and re-fires
+the gate):**
+
+1. **`mkdocs: command not found`** — `full-suite`'s install step
+   (`pip install -e .[dev]`) only pulled the `dev` extra; MkDocs and its
+   plugins live under a separate `docs` extra in this project's
+   `pyproject.toml`, never installed by the workflow. Fix: install both
+   extras, `pip install -e .[dev,docs]`.
+2. **`Invalid requirement: 'docs]'`** — the first fix attempt had a space
+   after the comma (`.[dev, docs]`). In an unquoted YAML `run:` line, the
+   shell tokenizes on whitespace *before* pip ever sees the string, so
+   `.[dev, docs]` splits into two separate arguments: `.[dev,` and
+   `docs]`. Pip then tries to parse the second token, `docs]`, as its own
+   requirement and fails on the stray bracket. Fix: no space after the
+   comma — `.[dev,docs]`. General lesson: multi-extra pip specs in shell
+   `run:` steps need to be written as a single unbroken token, same
+   constraint as typing it directly at a shell prompt.
+
+**Merged and verified — first real end-to-end execution of `release.yml`:**
+
+Merge command used was `gh pr merge --squash` — **deliberately without**
+`--delete-branch`. Worth flagging explicitly: in Scenario 2,
+`--delete-branch` was correct because the PR's head branch was the
+throwaway `feature/smoke-humidity-check`. Here, the PR's head branch is
+`develop` itself — passing `--delete-branch` out of habit would have
+deleted the integration branch. `--delete-branch` always targets the
+head branch of the PR being merged, not a fixed "feature branch"
+concept; check which branch that actually is before reaching for the
+flag.
+
+The merge fired `push → main`, watched live with `gh run watch`:
+
+```
+Select a workflow run * Release v0.6.1 (#18), Release Pipeline [main] 17s ago
+  ✓ main Release Pipeline · 34413638740
+  Triggered via push about 1 minute ago
+
+  JOBS
+  ✓ full-suite in 20s
+  ✓ tag-and-release in 8s
+  ✓ build-and-publish in 34s
+
+  ANNOTATIONS
+  ! Node.js 20 is deprecated. The following actions target Node.js 20 but
+    are being forced to run on Node.js 24: actions/checkout@v4,
+    actions/setup-python@v5, actions/upload-artifact@v4.
+```
+
+**Reading this output:**
+
+- All three jobs ran this time (Scenario 3's whole point) because
+  merging is itself a `push` event to `main` — unlike the PR's
+  `pull_request` event, which only ever runs `full-suite` due to the
+  `if: github.event_name == 'push'` guard on the other two jobs.
+- **`full-suite` (20s):** checkout → `setup-python` → install
+  `.[dev,docs]` → `pytest --cov` → upload coverage artifact →
+  `mkdocs build`. Reran independently of the PR's earlier pass, now
+  against the actual merged state of `main` — this is the confirmation
+  role, same pattern as `smoke-tests.yml`'s `push` run on `develop`.
+- **`tag-and-release` (8s):** read `version = "0.6.1"` out of
+  `pyproject.toml` via `tomllib`, created and pushed tag `v0.6.1`, and
+  called `gh release create` — first real exercise of the `GH_TOKEN`
+  fix added earlier this module; it worked without issue.
+- **`build-and-publish` (34s):** `python -m build` produced the
+  sdist/wheel, then `pypa/gh-action-pypi-publish` authenticated via
+  OIDC against the PyPI pending publisher registered earlier — first
+  real activation of Trusted Publishing, no stored token anywhere in
+  the chain. Succeeded on the first attempt, meaning the
+  project/owner/repo/workflow-name match registered on pypi.org was
+  exact.
+- **Net result:** `v0.6.1` is now tagged, has a GitHub Release, and is
+  published on PyPI — for real, irreversibly.
+
+**The Node.js 20 deprecation annotation is informational, not a
+failure.** `actions/checkout@v4`, `actions/setup-python@v5`, and
+`actions/upload-artifact@v4` are built against the Node 20 runtime,
+which GitHub is deprecating; GitHub is currently auto-forcing these
+onto Node 24 behind the scenes, so nothing broke this run. Not urgent,
+but worth tracking as a future maintenance item — bump to newer major
+versions of these actions (e.g. `checkout@v5`) before Node 20 support
+is fully withdrawn. Logged as a follow-up, not blocking.
 
 ### Scenario 4 — Hotfix
 `main` is live at, e.g., v1.2.0. A critical bug surfaces in production, but
@@ -375,6 +469,63 @@ through `develop`.
 This is the one path that breaks the "everything flows `develop → main`"
 assumption baked into Scenario 3 — `main` gets its own branch, and the
 fix must be explicitly back-propagated.
+
+#### Back-merge strategy (verified)
+
+The hotfix branch (`hotfix/xyz`) is deleted immediately after merging into
+`main` (`gh pr merge --squash --delete-branch` — head branch here *is*
+the throwaway hotfix branch, so `--delete-branch` is correct, unlike the
+Scenario 3 caution above). That means the back-merge into `develop`
+can't reference the old branch directly; instead, branch fresh from
+`develop`, merge `main`'s updated tip into it, and PR that back:
+
+```bash
+# 1. Fetch latest refs
+git fetch origin main develop
+
+# 2. Create a merge branch from develop
+git checkout -b merge-main-into-develop origin/develop
+
+# 3. Merge main into it (resolve conflicts if any show up —
+#    expect the pyproject.toml version line to differ:
+#    develop=0.6.1, main=0.6.2 after the hotfix; keep 0.6.2)
+git merge origin/main
+
+# 4. Push the merge branch
+git push -u origin merge-main-into-develop
+
+# 5. Open a PR into develop
+gh pr create --base develop --head merge-main-into-develop \
+  --title "Back-merge hotfix v0.6.2 from main into develop" \
+  --body "Brings the hotfix and version bump back into develop so it isn't lost on the next release cut."
+
+# 6. Wait for the smoke gate, then merge with a REAL MERGE COMMIT — not squash
+gh pr merge --merge --delete-branch
+
+# 7. Verify version landed
+git show origin/develop:pyproject.toml | grep '^version'
+```
+
+**Why a real merge commit (`--merge`), not squash, specifically for this
+PR:** step 3 already performs a genuine three-way merge, establishing
+real ancestry between `develop` and `main` at this point in history.
+Squashing at the PR-merge step (step 6) would discard exactly that
+ancestry, collapsing it into a single flat commit with no recorded
+merge-base. This matters more for a back-merge than for an ordinary
+feature PR: if a future `develop → main` release needs to reconcile
+these same lines again, Git's three-way merge relies on shared ancestry
+to know the content is already accounted for. A squashed back-merge
+falls back to pure content comparison instead — usually still works,
+but loses the guarantee. Every other PR in this project (Scenarios 2
+and 3, and the original hotfix→`main` PR) is squash-merged deliberately,
+since those all have throwaway single-purpose branches with no ancestry
+worth preserving; this back-merge is the one exception, precisely
+because step 3's merge is the point of the exercise.
+
+Note also `gh pr merge --merge` requires "Allow merge commits" enabled
+as a strategy under repo Settings → General → Pull Requests — some
+repos default to squash-only, which would surface as an error on the
+merge command itself rather than a branch-protection failure.
 
 ---
 
@@ -418,12 +569,38 @@ pipeline to a different build/CI system.
 - [x] Write `release.yml` with the `pull_request`/`push` split and the
       `if: github.event_name == 'push'` guard (committed to `develop`;
       inert there until a `develop → main` PR exercises it)
-- [ ] Add the `full-suite` check to `main`'s branch protection as a
-      required status check (protection rule itself already exists)
+- [x] Add the `full-suite` check to `main`'s branch protection as a
+      required status check — verified: `required_status_checks.contexts`
+      returns `["full-suite"]`
 - [x] Register PyPI Trusted Publisher for the repo + `release.yml`
       (pending publisher — activates on first successful publish)
 - [x] Walk a real feature branch through Scenario 2 end-to-end
-- [ ] Walk a `develop → main` PR through Scenario 3 end-to-end, confirm
-      auto-tag/release/publish fires correctly
-- [ ] (Optional, for understanding only) simulate Scenario 4 — branch a
-      hotfix from `main`, confirm the back-merge-to-`develop` step
+- [x] Walk a `develop → main` PR through Scenario 3 end-to-end, confirm
+      auto-tag/release/publish fires correctly — `v0.6.1` tagged,
+      released on GitHub, and published to PyPI via Trusted Publishing
+- [x] (Optional, for understanding only) simulate Scenario 4 — branch a
+      hotfix from `main`, confirm the back-merge-to-`develop` step —
+      executed: hotfix merged into `main` (0.6.2), back-merge PR
+      (`merge-main-into-develop`) run via real merge commit
+      (`gh pr merge --merge --delete-branch`), `develop` now carries
+      the hotfix and version 0.6.2
+
+**Final Module 7 tasks (added at end of session, not yet started):**
+- [ ] Document install/run of the deployed app from real PyPI (`pip install
+      nowcastingcli` from a clean env, confirm entry point runs) — distinct
+      from Module 6's TestPyPI-only install walkthrough
+- [ ] Document how to check the deployed app's documentation (where MkDocs
+      output is published/hosted, if anywhere yet — GitHub Pages not yet
+      configured per §8, so this may surface that gap)
+- [ ] Document granting repo access to a third-party collaborator with
+      contributor-level (non-admin) rights — GitHub role model (Read/
+      Triage/Write/Maintain/Admin), which role fits "can open PRs and
+      push to non-protected branches but can't change branch protection
+      or repo settings," and whether to use direct collaborator invite
+      vs. a team (if repo is under an org)
+
+**Follow-up (non-blocking, logged from Scenario 3's first real run):**
+- [ ] Bump `actions/checkout`, `actions/setup-python`, and
+      `actions/upload-artifact` to newer major versions ahead of GitHub's
+      Node.js 20 runtime deprecation — currently auto-forced onto Node 24,
+      not yet broken, but worth addressing before support is withdrawn
