@@ -41,7 +41,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0          # full history + tags — default shallow clone hides existing tags from rev-parse
+          fetch-depth: 0
+
       - run: |
           VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           if git rev-parse "v$VERSION" >/dev/null 2>&1; then
