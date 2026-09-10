@@ -33,3 +33,8 @@
 - [ ] **#22** Add `--help` parameter
   `nowcastingcli --help` should print a short help/usage explanation and
   exit.
+- [ ] **#28** Revise all course documentation for consistency
+  Review all `course_notes/*.md` files (and related docs like `README.md`,
+  `SESSION_SUMMARY.md`) and unify tone, structure, and formatting across
+  them — currently written incrementally across sessions with
+  inconsistent style/depth.
