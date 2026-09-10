@@ -27,3 +27,9 @@
   Update the log entry to also include the observation `timestamp` and
   the computed `pressure_qnh`, so the log file captures the same data
   as the in-memory `Observation` record.
+- [ ] **#21** Add `--version` parameter
+  `nowcastingcli --version` should print the installed package version
+  number and exit.
+- [ ] **#22** Add `--help` parameter
+  `nowcastingcli --help` should print a short help/usage explanation and
+  exit.

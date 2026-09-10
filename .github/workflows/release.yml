@@ -18,6 +18,21 @@ jobs:
         with: { name: coverage, path: coverage.xml }
       - run: mkdocs build
 
+  deploy-docs:
+    needs: full-suite
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions: { contents: write }        # pushes to the gh-pages branch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.x" }
+      - run: pip install -e .[dev,docs]
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - run: mkdocs gh-deploy --force --clean
+
   tag-and-release:
     needs: full-suite
     if: github.event_name == 'push'        # never release from a PR preview
