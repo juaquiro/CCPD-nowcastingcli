@@ -470,6 +470,63 @@ This is the one path that breaks the "everything flows `develop → main`"
 assumption baked into Scenario 3 — `main` gets its own branch, and the
 fix must be explicitly back-propagated.
 
+#### Back-merge strategy (verified)
+
+The hotfix branch (`hotfix/xyz`) is deleted immediately after merging into
+`main` (`gh pr merge --squash --delete-branch` — head branch here *is*
+the throwaway hotfix branch, so `--delete-branch` is correct, unlike the
+Scenario 3 caution above). That means the back-merge into `develop`
+can't reference the old branch directly; instead, branch fresh from
+`develop`, merge `main`'s updated tip into it, and PR that back:
+
+```bash
+# 1. Fetch latest refs
+git fetch origin main develop
+
+# 2. Create a merge branch from develop
+git checkout -b merge-main-into-develop origin/develop
+
+# 3. Merge main into it (resolve conflicts if any show up —
+#    expect the pyproject.toml version line to differ:
+#    develop=0.6.1, main=0.6.2 after the hotfix; keep 0.6.2)
+git merge origin/main
+
+# 4. Push the merge branch
+git push -u origin merge-main-into-develop
+
+# 5. Open a PR into develop
+gh pr create --base develop --head merge-main-into-develop \
+  --title "Back-merge hotfix v0.6.2 from main into develop" \
+  --body "Brings the hotfix and version bump back into develop so it isn't lost on the next release cut."
+
+# 6. Wait for the smoke gate, then merge with a REAL MERGE COMMIT — not squash
+gh pr merge --merge --delete-branch
+
+# 7. Verify version landed
+git show origin/develop:pyproject.toml | grep '^version'
+```
+
+**Why a real merge commit (`--merge`), not squash, specifically for this
+PR:** step 3 already performs a genuine three-way merge, establishing
+real ancestry between `develop` and `main` at this point in history.
+Squashing at the PR-merge step (step 6) would discard exactly that
+ancestry, collapsing it into a single flat commit with no recorded
+merge-base. This matters more for a back-merge than for an ordinary
+feature PR: if a future `develop → main` release needs to reconcile
+these same lines again, Git's three-way merge relies on shared ancestry
+to know the content is already accounted for. A squashed back-merge
+falls back to pure content comparison instead — usually still works,
+but loses the guarantee. Every other PR in this project (Scenarios 2
+and 3, and the original hotfix→`main` PR) is squash-merged deliberately,
+since those all have throwaway single-purpose branches with no ancestry
+worth preserving; this back-merge is the one exception, precisely
+because step 3's merge is the point of the exercise.
+
+Note also `gh pr merge --merge` requires "Allow merge commits" enabled
+as a strategy under repo Settings → General → Pull Requests — some
+repos default to squash-only, which would surface as an error on the
+merge command itself rather than a branch-protection failure.
+
 ---
 
 ## 8. What Is GitHub-Dependent vs. Tool-Standard
