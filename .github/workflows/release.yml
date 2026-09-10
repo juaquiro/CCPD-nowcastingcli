@@ -38,25 +38,30 @@ jobs:
     if: github.event_name == 'push'        # never release from a PR preview
     runs-on: ubuntu-latest
     permissions: { contents: write }
+    outputs:
+      released: ${{ steps.tag.outputs.released }}
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-      - run: |
+          fetch-depth: 0          # full history + tags — default shallow clone hides existing tags from rev-parse
+      - id: tag
+        run: |
           VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           if git rev-parse "v$VERSION" >/dev/null 2>&1; then
             echo "Tag v$VERSION already exists — skipping (no version bump, no release)."
+            echo "released=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git tag "v$VERSION"
           git push origin "v$VERSION"
           gh release create "v$VERSION" --generate-notes
+          echo "released=true" >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ github.token }}
 
   build-and-publish:
     needs: tag-and-release
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.tag-and-release.outputs.released == 'true'
     runs-on: ubuntu-latest
     permissions: { id-token: write }        # PyPI Trusted Publishing (OIDC)
     steps:
