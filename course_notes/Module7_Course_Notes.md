@@ -2,7 +2,9 @@
 
 > Part of: Claude Code for Python Developers: Hands-On Agentic Coding
 > Project: NowcastingCLI (`CCPD-nowcastingcli`)
-> Builds on: Module 6 (the manual process this module automates)
+> Previous: [Module 6 — Build, Packaging, and Manual Delivery](./Module6_Course_Notes.md) (the manual process this module automates)
+> Next: — (final module of Course Project 1; see "On the Horizon" in the index for Project 2)
+> See also: [Course Notes Index](./Course_Notes_Index.md)
 
 ---
 
@@ -255,7 +257,7 @@ as a trusted publisher for the package. No `PYPI_API_TOKEN` secret stored
 anywhere. The workflow just needs `permissions: id-token: write` on the
 publishing job — GitHub mints a short-lived OIDC token, PyPI verifies it
 against the registered repo/workflow, publish proceeds. This is the modern
-replacement for token-in-secrets upload from Module 6.
+replacement for the token-in-secrets upload from [Module 6](./Module6_Course_Notes.md#41-one-time-setup-testpypi-account-and-api-token).
 
 **Registered in this project (pending publisher, since `nowcastingcli`
 hasn't been published to real PyPI yet):**
@@ -799,11 +801,11 @@ against a real invite.)*
       (`gh pr merge --merge --delete-branch`), `develop` now carries
       the hotfix and version 0.6.2
 
-**Final Module 7 tasks (added at end of session, not yet started):**
+**Final Module 7 tasks (added at end of session — all complete):**
 - [x] Document install/run of the deployed app from real PyPI (`pip install
       nowcastingcli` from a clean env, confirm entry point runs) — distinct
-      from Module 6's TestPyPI-only install walkthrough — see §9.1,
-      confirmed working, resolved v0.6.2
+      from [Module 6](./Module6_Course_Notes.md#4-manual-delivery-path-1--testpypi--pypi)'s
+      TestPyPI-only install walkthrough — see §9.1, confirmed working, resolved v0.6.2
 - [x] Document how to check the deployed app's documentation — manual
       `mkdocs serve` fallback documented, `deploy-docs` job added to
       `release.yml`, verified live end-to-end (§9.2). Surfaced two
@@ -825,3 +827,12 @@ against a real invite.)*
       `actions/upload-artifact` to newer major versions ahead of GitHub's
       Node.js 20 runtime deprecation — currently auto-forced onto Node 24,
       not yet broken, but worth addressing before support is withdrawn
+
+---
+
+**Module 7 complete — this closes Course Project 1 (NowcastingCLI).** The
+condensed, always-current version of this module's workflows lives in
+`README.md`'s "CI/CD Pipeline" section, which tracks the actual
+`.github/workflows/*.yml` files as they evolve after this course narrative
+was written. See the [Course Notes Index](./Course_Notes_Index.md#on-the-horizon)
+for what Project 2 (fringeDemod) covers next.

@@ -1,14 +1,14 @@
 # Module 3 — Claude Code: Refactoring, Test Generation, Code Explanation
 
 > Part of: Claude Code for Python Developers: Hands-On Agentic Coding
-> Repo: CCPD-nowcastingcli
-> See also: [Course_Notes_Index.md](./Course_Notes_Index.md)
+> Project: NowcastingCLI (`CCPD-nowcastingcli`)
+> Previous: [Module 2 — pytest: Unit Testing NowcastingCLI](./Module2_Course_Notes.md)
+> Next: [Module 4 — Logging: Structured Logs for NowcastingCLI](./Module4_Course_Notes.md)
+> See also: [Course Notes Index](./Course_Notes_Index.md)
 
 ---
 
-## Part 3 — Claude Code: Refactoring, Test Generation, Code Explanation
-
-### What Claude Code Is
+## What Claude Code Is
 
 Claude Code is Anthropic's agentic CLI coding tool — a coding agent that lives
 in your terminal, has full read/write access to your repo, can run commands,
@@ -29,7 +29,7 @@ The three core workflows covered in this module:
 
 ---
 
-### Installation
+## Installation
 
 Claude Code is a Node.js CLI tool — installed globally, not into your conda env:
 
@@ -49,7 +49,7 @@ your Anthropic account. API usage is billed separately from Claude.ai subscripti
 
 ---
 
-### First Launch
+## First Launch
 
 Always launch from the project root — Claude Code reads the directory structure immediately:
 
@@ -63,7 +63,7 @@ This drops into an interactive REPL. The interaction model is:
 
 ---
 
-### Use Case 1 — Code Explanation
+## Use Case 1 — Code Explanation
 
 Claude Code reads the actual file — you don't paste code. Example prompt:
 
@@ -83,7 +83,7 @@ whole repo is its context, not just the file you mention.
 
 ---
 
-### Use Case 2 — Refactoring
+## Use Case 2 — Refactoring
 
 A concrete refactoring task for `physics.py`:
 
@@ -130,7 +130,7 @@ def normalize_pressure(pressure_hpa: float, altitude_m: float, temperature_c: fl
 
 ---
 
-### Use Case 3 — Test Generation
+## Use Case 3 — Test Generation
 
 After refactoring, prompt Claude Code to generate tests for the new validation:
 
@@ -151,7 +151,7 @@ implementation in a plausible way?* If not, strengthen it.
 
 ---
 
-### Slash Commands
+## Slash Commands
 
 In the Claude Code REPL, slash commands control the session:
 
@@ -170,7 +170,7 @@ is always there as a second line of defense.
 
 ---
 
-### CLAUDE.md — Persistent Project Instructions
+## CLAUDE.md — Persistent Project Instructions
 
 Drop `CLAUDE.md` at the repo root. Claude Code reads it at session start as
 a persistent project-level system prompt — equivalent to a `Jenkinsfile`
@@ -210,7 +210,7 @@ flat test files when you've specified a mirrored structure.
 
 ---
 
-### VS Code Integration
+## VS Code Integration
 
 Install the "Claude Code" extension from the VS Code marketplace.
 
@@ -223,7 +223,7 @@ Use whichever keeps you in flow.
 
 ---
 
-### Exercise Checklist
+## Exercise Checklist
 
 - [ ] Install Claude Code: `npm install -g @anthropic-ai/claude-code`, verify launch from repo root
 - [ ] Create `CLAUDE.md` with project conventions (adapt the template above)
@@ -235,7 +235,9 @@ Use whichever keeps you in flow.
 
 ---
 
----
-
----
+**Module 3 complete.** The refactored `physics.py` guards (`ValueError` on
+invalid `pressure_hpa`/`altitude_m`) get their `logger.error` calls in
+[Module 4](./Module4_Course_Notes.md#implementation), and this module's
+`CLAUDE.md` example is the one actually committed to the repo root — see
+`CLAUDE.md`. Next: [Module 4 — Logging: Structured Logs for NowcastingCLI](./Module4_Course_Notes.md).
 

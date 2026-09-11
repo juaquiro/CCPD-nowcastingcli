@@ -1,14 +1,14 @@
 # Module 5 — Documentation: MkDocs for NowcastingCLI
 
 > Part of: Claude Code for Python Developers: Hands-On Agentic Coding
-> Repo: CCPD-nowcastingcli
-> See also: [Course_Notes_Index.md](./Course_Notes_Index.md)
+> Project: NowcastingCLI (`CCPD-nowcastingcli`)
+> Previous: [Module 4 — Logging: Structured Logs for NowcastingCLI](./Module4_Course_Notes.md)
+> Next: [Module 6 — Build, Packaging, and Manual Delivery](./Module6_Course_Notes.md)
+> See also: [Course Notes Index](./Course_Notes_Index.md)
 
 ---
 
-## Part 5 — Documentation: MkDocs for NowcastingCLI
-
-### MkDocs vs Sphinx
+## MkDocs vs Sphinx
 
 **MkDocs** is Markdown-native, has a single `mkdocs.yml` config file, and with
 the Material theme produces professional output immediately. The `mkdocstrings`
@@ -28,7 +28,7 @@ nDoc points at an assembly. `mkdocs.yml` is your nDoc project file.
 
 ---
 
-### Install
+## Install
 
 ```bash
 pip install mkdocs mkdocs-material mkdocstrings[python]
@@ -56,7 +56,7 @@ pip install -e ".[docs]"
 
 ---
 
-### Project Structure
+## Project Structure
 
 Scaffold with:
 
@@ -88,7 +88,7 @@ echo "site/" >> .gitignore
 
 ---
 
-### mkdocs.yml
+## mkdocs.yml
 
 ```yaml
 site_name: NowcastingCLI
@@ -130,7 +130,7 @@ sections). Clearest style for scientific code. NumPy style is also supported.
 
 ---
 
-### Docstrings with Claude Code
+## Docstrings with Claude Code
 
 Before `mkdocstrings` can render anything useful, the source needs real
 docstrings. Delegate this to Claude Code:
@@ -186,7 +186,7 @@ git commit -m "docs: add Google-style docstrings to physics, heuristics, models"
 
 ---
 
-### API Reference Pages
+## API Reference Pages
 
 These pages are intentionally thin — they just invoke the `mkdocstrings`
 directive. The plugin resolves the Python dotted path via `griffe` and renders
@@ -218,7 +218,7 @@ all public members with their docstrings automatically.
 
 ---
 
-### Content Pages
+## Content Pages
 
 **`docs/index.md`** — landing page, analogous to README:
 
@@ -280,7 +280,7 @@ Observation (models.py)
 
 ---
 
-### Live Preview and Build
+## Live Preview and Build
 
 **Live preview** — hot-reloads on every file save:
 
@@ -304,7 +304,7 @@ copy to any web server, or attach as a CI artifact. No runtime server required.
 
 ---
 
-### GitHub Pages Deployment
+## GitHub Pages Deployment
 
 One-command publish to `gh-pages` branch:
 
@@ -317,16 +317,18 @@ Builds the site and force-pushes to `gh-pages`. GitHub serves it at:
 
 **One-time repo setup:** Settings → Pages → Source → `gh-pages` branch, `/ (root)`.
 
-In Module 6 (GitHub Actions CI/CD), this command will be automated: a workflow
-will run `mkdocs gh-deploy` on every push to `main`.
+This command is later automated in [Module 7](./Module7_Course_Notes.md#92-checking-the-deployed-apps-documentation)
+(CI/CD): the `release.yml` workflow's `deploy-docs` job runs `mkdocs gh-deploy --force --clean`
+on every push to `main`, so the published site never drifts from what
+`mkdocs build` produces locally.
 
 ---
 
-### Doc Versioning: Version and Date in HTML Output
+## Doc Versioning: Version and Date in HTML Output
 
 Three options in increasing complexity. **Option 2 is recommended** for this project.
 
-#### Option 1 — Static footer in `mkdocs.yml` (manual, simplest)
+### Option 1 — Static footer in `mkdocs.yml` (manual, simplest)
 
 Material renders `copyright` in the page footer automatically:
 
@@ -338,7 +340,7 @@ Downside: you update it by hand. Fine if you rarely change version or date.
 
 ---
 
-#### Option 2 — Dynamic hook: read version from `pyproject.toml` (recommended)
+### Option 2 — Dynamic hook: read version from `pyproject.toml` (recommended)
 
 Create `mkdocs_hooks.py` at the repo root:
 
@@ -374,7 +376,9 @@ copyright: "NowcastingCLI v{{ project_version }} — {{ build_date }}"
 
 **Why this is the right pattern:** version is declared once in `pyproject.toml`
 and flows automatically into both the installable package and the HTML docs.
-No manual sync, no risk of docs showing a stale version string.
+No manual sync, no risk of docs showing a stale version string — the same
+single-source-of-truth discipline [Module 6](./Module6_Course_Notes.md#3-version-source-of-truth)
+relies on for `__version__` and Module 7's auto-tagging.
 
 You can also reference `{{ project_version }}` inline in any `.md` page:
 
@@ -391,7 +395,7 @@ git commit -m "docs: add build-time version injection from pyproject.toml"
 
 ---
 
-#### Option 3 — Full versioned docs with `mike` (for library projects)
+### Option 3 — Full versioned docs with `mike` (for library projects)
 
 `mike` publishes multiple doc versions to `gh-pages` simultaneously (e.g.
 `v0.1`, `v0.2`, `latest`) with a version-switcher dropdown in the nav bar.
@@ -420,12 +424,12 @@ version of the docs.
 
 ---
 
-### Addendum 2026-08-26 — MkDocs 2.0 Ecosystem Warning
+## Addendum 2026-08-26 — MkDocs 2.0 Ecosystem Warning
 
 > **Status as of August 2026.** The situation is still evolving.
 > Pin versions as described below until there is a clear migration path.
 
-#### What happened
+### What happened
 
 MkDocs 2.0 is a ground-up rewrite of the MkDocs framework by a new maintainer,
 published as a pre-release under a separate GitHub org (`encode/mkdocs`).
@@ -445,7 +449,7 @@ Key breaking changes in MkDocs 2.0:
 MkDocs 1.x is simultaneously unmaintained — no releases in 18+ months, issues
 and PRs piling up, and security fix status unclear.
 
-#### The Material for MkDocs team's response
+### The Material for MkDocs team's response
 
 The Material for MkDocs team (squidfunk) has built **Zensical** — a new static
 site generator designed as a drop-in replacement for MkDocs 1.x, compatible
@@ -457,7 +461,7 @@ and differential builds.
 Zensical is in active development. Full plugin compatibility is not yet complete,
 but it is the intended long-term home for Material for MkDocs and `mkdocstrings`.
 
-#### What the warning means in practice
+### What the warning means in practice
 
 The warning you see during `mkdocs serve` / `mkdocs build` is emitted by
 **Material for MkDocs ≥ 9.7.2** to alert you that MkDocs 2.0 will break your
@@ -470,7 +474,7 @@ To suppress it while the situation resolves:
 export NO_MKDOCS_2_WARNING=1
 ```
 
-#### How to protect your build today
+### How to protect your build today
 
 **Pin `mkdocs` to `<2` in your deps.** Material for MkDocs 9.7.5+ already
 does this automatically, but be explicit in your own config:
@@ -487,7 +491,7 @@ docs = [
 This ensures `pip install -e ".[docs]"` will never accidentally pull in
 MkDocs 2.0 if/when it is released to PyPI.
 
-#### Recommended stance for this course
+### Recommended stance for this course
 
 - **Continue using MkDocs 1.x + Material + mkdocstrings** — the stack works,
   is stable, and will receive security attention from the Material team.
@@ -499,14 +503,14 @@ MkDocs 2.0 if/when it is released to PyPI.
 - **Do not suppress the warning permanently** in CI — keep it visible so you
   notice when the situation changes.
 
-#### Reference
+### Reference
 
 Full analysis by the Material for MkDocs team:
 `https://squidfunk.github.io/mkdocs-material/blog/2026/02/18/mkdocs-2.0/`
 
 ---
 
-### Exercise Checklist
+## Exercise Checklist
 
 - [ ] `pip install mkdocs mkdocs-material mkdocstrings[python]`, add to `pyproject.toml` optional deps
 - [ ] `mkdocs new .` to scaffold `docs/` and `mkdocs.yml`
@@ -528,4 +532,4 @@ Full analysis by the Material for MkDocs team:
 
 ---
 
-*Notes will be extended as each module is completed.*
+**Module 5 complete.** Next: [Module 6 — Build, Packaging, and Manual Delivery](./Module6_Course_Notes.md).

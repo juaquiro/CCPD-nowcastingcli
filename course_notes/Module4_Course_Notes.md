@@ -1,14 +1,14 @@
 # Module 4 — Logging: Structured Logs for NowcastingCLI
 
 > Part of: Claude Code for Python Developers: Hands-On Agentic Coding
-> Repo: CCPD-nowcastingcli
-> See also: [Course_Notes_Index.md](./Course_Notes_Index.md)
+> Project: NowcastingCLI (`CCPD-nowcastingcli`)
+> Previous: [Module 3 — Claude Code: Refactoring, Test Generation, Code Explanation](./Module3_Course_Notes.md)
+> Next: [Module 5 — Documentation: MkDocs for NowcastingCLI](./Module5_Course_Notes.md)
+> See also: [Course Notes Index](./Course_Notes_Index.md)
 
 ---
 
-## Part 4 — Logging: Structured Logs for NowcastingCLI
-
-### Why Logging Not print()
+## Why Logging Not print()
 
 The same motivation as switching from ad-hoc `echo` statements in a Jenkins
 pipeline to structured build logs: severity levels, runtime control, and
@@ -28,7 +28,7 @@ no touching source files.
 
 ---
 
-### Logger Hierarchy
+## Logger Hierarchy
 
 Python's logging system is a tree rooted at the **root logger**. Named loggers
 are created with `logging.getLogger(__name__)`. In `nowcastingcli/physics.py`,
@@ -60,7 +60,7 @@ No handler setup in library code — ever.
 
 ---
 
-### Handlers and Formatters
+## Handlers and Formatters
 
 A **handler** decides *where* a log record goes. A **formatter** decides
 *what it looks like*.
@@ -100,7 +100,7 @@ fmt = logging.Formatter(
 
 ---
 
-### dictConfig vs basicConfig
+## dictConfig vs basicConfig
 
 `basicConfig` is fine for a single-handler script. For anything with multiple
 handlers, JSON output, or non-trivial level routing, use `dictConfig` —
@@ -161,7 +161,7 @@ third-party library loggers you import get silenced when `dictConfig` runs.
 
 ---
 
-### Structured JSON Logging
+## Structured JSON Logging
 
 Plain text is human-readable. JSON logs are machine-parseable — queryable
 with `jq`, or ingestible by any log aggregator (Loki, Splunk, etc.).
@@ -205,7 +205,7 @@ even when DEBUG is disabled.
 
 ---
 
-### Where to Log in NowcastingCLI
+## Where to Log in NowcastingCLI
 
 | Location | What to log | Level |
 |---|---|---|
@@ -218,7 +218,7 @@ even when DEBUG is disabled.
 
 ---
 
-### Implementation
+## Implementation
 
 **Step 1 — Install and update deps**
 
@@ -254,6 +254,13 @@ def run() -> None:
         "reason": reason,
     })
 ```
+
+> **Note (post-launch revision):** the `DEBUG` call above logging only the
+> raw inputs was later found to omit exactly the two fields (`timestamp`,
+> `pressure_qnh`) needed to match a debug entry back to its in-memory
+> `Observation` record. The shipped `_record_observation()` in `main.py`
+> now builds the `Observation` first and logs it after normalization —
+> see the "Logging" section of `README.md` for the current field list.
 
 **Step 4 — Log `ValueError` in `physics.py`**
 
@@ -294,7 +301,7 @@ logs/
 
 ---
 
-### Claude Code Agentic Task
+## Claude Code Agentic Task
 
 Hand this off to Claude Code in one session:
 
@@ -325,7 +332,7 @@ in all log calls. Run pytest after changes to confirm no regressions.
 
 ---
 
-### Verifying Output
+## Verifying Output
 
 ```bash
 nowcastingcli        # enter 3 observations, then quit
@@ -340,7 +347,7 @@ cat logs/nowcastingcli.log | jq '{t: .asctime, level: .levelname, msg: .message}
 
 ---
 
-### Exercise Checklist
+## Exercise Checklist
 
 - [ ] `pip install python-json-logger`, add to `pyproject.toml` dependencies
 - [ ] Create `nowcastingcli/logging_config.py` with `dictConfig` + `setup_logging()`
@@ -354,5 +361,5 @@ cat logs/nowcastingcli.log | jq '{t: .asctime, level: .levelname, msg: .message}
 
 ---
 
----
+**Module 4 complete.** Next: [Module 5 — Documentation: MkDocs for NowcastingCLI](./Module5_Course_Notes.md), where `mkdocstrings` documents these same modules' public API from their docstrings.
 
