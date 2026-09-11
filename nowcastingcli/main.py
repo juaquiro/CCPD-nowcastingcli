@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from rich.prompt import Prompt
 
+from . import __version__
 from .models import Observation
 from .physics import normalize_pressure
 from .display import render_dashboard, console
@@ -88,9 +89,6 @@ def _record_observation(pressure_raw: float, temperature: float, humidity: float
                         altitude: float, observations: list[Observation],
                         verdicts: list[str]) -> None:
     """Normalize, store, render, and log one observation."""
-    logger.debug("Raw input received: p=%.1f T=%.1f RH=%.1f alt=%.1f",
-                 pressure_raw, temperature, humidity, altitude)
-
     pressure_qnh = normalize_pressure(pressure_raw, altitude, temperature)
     obs = Observation(
         timestamp    = datetime.now(),
@@ -100,6 +98,11 @@ def _record_observation(pressure_raw: float, temperature: float, humidity: float
         humidity     = humidity,
         altitude     = altitude,
     )
+    logger.debug(
+        "Observation recorded: ts=%s p_raw=%.1f qnh=%.1f T=%.1f RH=%.1f alt=%.1f",
+        obs.timestamp.isoformat(), pressure_raw, pressure_qnh, temperature, humidity, altitude,
+    )
+
     observations.append(obs)
     render_dashboard(observations)
 
@@ -208,6 +211,7 @@ def cli() -> None:
     parser = argparse.ArgumentParser(description="NowcastingCLI — terminal weather nowcasting")
     parser.add_argument("--input", metavar="FILE",
                         help="CSV file with columns: pressure_hpa, temperature_c, humidity_pct, altitude_m")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     args = parser.parse_args()
     run(input_file=args.input)
 
