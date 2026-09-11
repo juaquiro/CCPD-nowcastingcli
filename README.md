@@ -242,7 +242,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nowcastingcli"
-version = "0.6.3"
+version = "1.0.0"
 description = "Terminal weather nowcasting dashboard"
 requires-python = ">=3.11"
 dependencies = ["rich>=13.0", "python-json-logger"]
