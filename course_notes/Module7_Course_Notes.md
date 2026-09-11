@@ -823,10 +823,13 @@ against a real invite.)*
       mechanism documented, not exercised against a real invite
 
 **Follow-up (non-blocking, logged from Scenario 3's first real run):**
-- [ ] Bump `actions/checkout`, `actions/setup-python`, and
+- [x] Bump `actions/checkout`, `actions/setup-python`, and
       `actions/upload-artifact` to newer major versions ahead of GitHub's
-      Node.js 20 runtime deprecation — currently auto-forced onto Node 24,
-      not yet broken, but worth addressing before support is withdrawn
+      Node.js 20 runtime deprecation — bumped `checkout@v4`→`v7`,
+      `setup-python@v5`→`v7`, `upload-artifact@v4`→`v7` across both
+      workflow files (all three ESM/Node 24-native releases); no
+      behavioral changes needed since none of the removed inputs
+      (e.g. `setup-python`'s dropped `pip-install`) were in use
 
 ---
 

@@ -9,12 +9,12 @@ jobs:
   full-suite:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: "3.x" }
       - run: pip install -e .[dev,docs]
       - run: pytest --cov --cov-report=xml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: coverage, path: coverage.xml }
       - run: mkdocs build
 
@@ -24,8 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: write }        # pushes to the gh-pages branch
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: "3.x" }
       - run: pip install -e .[dev,docs]
       - run: |
@@ -41,7 +41,7 @@ jobs:
     outputs:
       released: ${{ steps.tag.outputs.released }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0          # full history + tags — default shallow clone hides existing tags from rev-parse
       - id: tag
@@ -65,8 +65,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { id-token: write }        # PyPI Trusted Publishing (OIDC)
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: "3.x" }
       - run: pip install build
       - run: python -m build
