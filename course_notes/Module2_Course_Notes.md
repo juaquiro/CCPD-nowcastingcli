@@ -1,14 +1,14 @@
 # Module 2 — pytest: Unit Testing NowcastingCLI
 
 > Part of: Claude Code for Python Developers: Hands-On Agentic Coding
-> Repo: CCPD-nowcastingcli
-> See also: [Course_Notes_Index.md](./Course_Notes_Index.md)
+> Project: NowcastingCLI (`CCPD-nowcastingcli`)
+> Previous: [Module 1 — NowcastingCLI: Project Setup](./Module1_Course_Notes.md)
+> Next: [Module 3 — Claude Code: Refactoring, Test Generation, Code Explanation](./Module3_Course_Notes.md)
+> See also: [Course Notes Index](./Course_Notes_Index.md)
 
 ---
 
-## Part 2 — pytest: Unit Testing NowcastingCLI
-
-### Why pytest
+## Why pytest
 
 Python ships with `unittest`, but pytest is the de facto standard in the
 scientific Python ecosystem (NumPy, SciPy, scikit-image all use it).
@@ -23,9 +23,16 @@ Key advantages over `unittest`:
 Think of the difference between NAnt's verbose XML task definitions and a
 modern build system — same capability, far less ceremony.
 
+This module is only this easy because of a design decision made in
+[Module 1](./Module1_Course_Notes.md#key-concepts): `physics.py` and
+`heuristics.py` are pure functions with no I/O or global state (see
+"Pure functions and testability" there). Every test below follows
+directly from that property — no mocking, no fixtures beyond a small
+factory function.
+
 ---
 
-### Install
+## Install
 
 ```bash
 conda activate nowcastingcli
@@ -34,7 +41,7 @@ pip install pytest pytest-cov debugpy
 
 ---
 
-### Where Tests Live
+## Where Tests Live
 
 The project layout already has the right shape:
 
@@ -56,7 +63,7 @@ No registration needed — no XML manifests, no test suite declarations.
 
 ---
 
-### Testing `physics.py`
+## Testing `physics.py`
 
 `normalize_pressure` is a pure function with no side effects. Perfect first target.
 
@@ -108,7 +115,7 @@ pytest tests/test_physics.py -v
 
 ---
 
-### Testing `heuristics.py`
+## Testing `heuristics.py`
 
 Heuristics work on `list[Observation]`. Use a local factory function to build
 test observations without going through the full input loop.
@@ -179,7 +186,7 @@ def test_no_change_is_stable():
 
 ---
 
-### `pytest.approx`
+## `pytest.approx`
 
 Never use `==` for floats. Always use `pytest.approx`:
 
@@ -200,7 +207,7 @@ which you'll use for array comparisons in Projects 2–3.
 
 ---
 
-### Parameterized Tests
+## Parameterized Tests
 
 Instead of writing N nearly identical test functions, use `@pytest.mark.parametrize`:
 
@@ -226,7 +233,7 @@ test_physics.py::test_qnh_increases_with_altitude[500-1070.0] PASSED
 
 ---
 
-### Coverage
+## Coverage
 
 ```bash
 pytest --cov=nowcastingcli --cov-report=term-missing
@@ -258,7 +265,7 @@ if you drop below 80%.
 
 ---
 
-### Running Subsets
+## Running Subsets
 
 ```bash
 pytest tests/test_physics.py                                        # one file
@@ -271,11 +278,11 @@ pytest --tb=short                                                   # shorter tr
 
 ---
 
-### Debugging Tests in VS Code
+## Debugging Tests in VS Code
 
 Two modes — pick by context.
 
-#### Mode 1: VS Code Debugger (GUI)
+### Mode 1: VS Code Debugger (GUI)
 
 **One-time setup:**
 
@@ -315,7 +322,7 @@ library source code (e.g., into `normalize_pressure` from a calling test).
 
 ---
 
-#### Mode 2: `breakpoint()` + Terminal
+### Mode 2: `breakpoint()` + Terminal
 
 No setup. Works in any terminal, including CI-like environments.
 
@@ -355,7 +362,7 @@ you don't know in advance where to place a `breakpoint()`.
 
 ---
 
-#### When to Use Which
+### When to Use Which
 
 | | Mode 1 (VS Code GUI) | Mode 2 (`pdb` terminal) |
 |---|---|---|
@@ -369,7 +376,7 @@ intercept `breakpoint()` calls and open its GUI at that line.
 
 ---
 
-### Exercise Checklist
+## Exercise Checklist
 
 - [ ] `pip install pytest pytest-cov debugpy`
 - [ ] Write `tests/test_physics.py` — at least 4 tests for `normalize_pressure`
@@ -383,5 +390,5 @@ intercept `breakpoint()` calls and open its GUI at that line.
 
 ---
 
----
+**Module 2 complete.** Next: [Module 3 — Claude Code: Refactoring, Test Generation, Code Explanation](./Module3_Course_Notes.md).
 

@@ -5,6 +5,7 @@ import pytest
 from unittest.mock import patch
 from nowcastingcli.main import get_float, run, edit_observation, _parse_csv, cli
 from nowcastingcli.models import Observation
+from nowcastingcli import __version__
 from datetime import datetime
 
 
@@ -503,3 +504,65 @@ def test_cli_with_input_calls_run(tmp_path, monkeypatch):
     with patch("nowcastingcli.main.run") as mock_run:
         cli()
     mock_run.assert_called_once_with(input_file=str(f))
+
+
+def test_cli_help_exits_cleanly(monkeypatch, capsys):
+    """--help prints usage and exits with status 0 (argparse's built-in behavior).
+
+    Regression guard: locks in that -h/--help stays wired up if argparse
+    setup changes (e.g. add_help=False).
+
+    Run: pytest tests/test_main.py::test_cli_help_exits_cleanly -v
+    """
+    monkeypatch.setattr(sys, "argv", ["nowcastingcli", "--help"])
+    with pytest.raises(SystemExit) as exc_info:
+        cli()
+    assert exc_info.value.code == 0
+    captured = capsys.readouterr()
+    assert "usage" in captured.out.lower()
+
+
+def test_cli_version_exits_cleanly(monkeypatch, capsys):
+    """--version prints the installed package version and exits with status 0.
+
+    Run: pytest tests/test_main.py::test_cli_version_exits_cleanly -v
+    """
+    monkeypatch.setattr(sys, "argv", ["nowcastingcli", "--version"])
+    with pytest.raises(SystemExit) as exc_info:
+        cli()
+    assert exc_info.value.code == 0
+    captured = capsys.readouterr()
+    assert __version__ in captured.out
+
+
+# ---------------------------------------------------------------------------
+# _record_observation — debug logging (issue #14)
+# ---------------------------------------------------------------------------
+
+def test_record_observation_logs_timestamp_and_qnh():
+    """The debug log entry must include the observation timestamp and the
+    computed pressure_qnh, not just the raw inputs, so the log file captures
+    the same data as the in-memory Observation record.
+
+    The "nowcastingcli" logger has propagate=False (see logging_config.py),
+    so caplog can't see these records via the root logger — patch
+    nowcastingcli.main.logger directly instead, as other tests in this file
+    patch console/render_dashboard.
+
+    Run: pytest tests/test_main.py::test_record_observation_logs_timestamp_and_qnh -v
+    """
+    from nowcastingcli.main import _record_observation
+
+    observations: list[Observation] = []
+    verdicts: list[str] = []
+    with patch("nowcastingcli.main.logger") as mock_logger, \
+         patch("nowcastingcli.main.render_dashboard"):
+        _record_observation(1013.25, 20.0, 50.0, 100.0, observations, verdicts)
+
+    assert len(observations) == 1
+    obs = observations[0]
+    mock_logger.debug.assert_called_once()
+    args = mock_logger.debug.call_args.args
+    message = args[0] % args[1:]
+    assert obs.timestamp.isoformat() in message
+    assert f"{obs.pressure_qnh:.1f}" in message

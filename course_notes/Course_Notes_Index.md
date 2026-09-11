@@ -2,11 +2,55 @@
 
 > **Course:** Claude Code for Python Developers: Hands-On Agentic Coding
 > **Repo:** CCPD-nowcastingcli
-> **Last updated:** 2026-08-27
+> **Last updated:** 2026-09-11
 
-This index replaces the single monolithic `COURSE_NOTES.md`. Notes are now
-split one file per module — easier to manage, easier to extend as new
-modules (fringeDemod, GitHub Actions, packaging/delivery, etc.) are added.
+This index replaces the single monolithic `COURSE_NOTES.md`. Notes are
+split one file per module — easier to manage, and easier to extend as new
+modules are added — but the seven files below tell one continuous story:
+building NowcastingCLI from an empty directory (Module 1) through a
+self-publishing CI/CD pipeline (Module 7). Read them in order the first
+time through; use this index and the cross-references inside each module
+to jump around afterward.
+
+**Course Project 1 (NowcastingCLI) is complete** — all seven modules
+below are finished and verified end-to-end. Project 2 (fringeDemod) is
+next; see "On the Horizon" below.
+
+---
+
+## Reading This Set
+
+Every module file (`ModuleN_Course_Notes.md`) opens with the same
+metadata block so you can navigate without going back to this index:
+
+```
+> Part of: Claude Code for Python Developers: Hands-On Agentic Coding
+> Project: NowcastingCLI (`CCPD-nowcastingcli`)
+> Previous: <link to Module N-1, or "—" for Module 1>
+> Next: <link to Module N+1, or "—" for Module 7>
+> See also: Course Notes Index
+```
+
+Each module also closes with a **"Module N complete"** line pointing to
+whatever comes next. Within the body text, the first mention of a concept
+that properly belongs to another module is a link to it — e.g. Module 2's
+tests are only trivial because of a design decision made in Module 1;
+Module 5's docs describe the same `physics.py`/`heuristics.py` that
+Module 3 refactored. Follow those links rather than treating each file as
+self-contained background reading.
+
+Two formatting conventions carried through every module:
+- **Exercise Checklist** at the end of each file — `[ ]` for undone,
+  `[x]` for verified complete. Modules 6 and 7 also use checklists inline
+  to track sub-verifications (e.g. "Standalone Package Checklist" in
+  Module 6) since those modules involve more external, hard-to-automate
+  verification (PyPI uploads, a second Windows user account, GitHub
+  branch protection) than the earlier ones.
+- **Numbered `##` sections** (`## 1. ...`, `## 2. ...`) in Modules 6 and 7,
+  where the material is naturally a sequence of delivery paths / workflow
+  components referenced by number elsewhere in the same file. Modules 1–5
+  use plain (unnumbered) `##` sections, since their content is referenced
+  by name, not number.
 
 ---
 
@@ -139,13 +183,14 @@ break and the recommended stance (pin `mkdocs<2`, watch Zensical).
 
 **Summary:** Covered the standard Python build/packaging chain independent
 of any CI system — `pyproject.toml` as the single build-config source,
-`python -m build` producing wheel + sdist, and the manual delivery paths
-(TestPyPI/PyPI via Trusted Publishing, conda packaging as an alternative,
-and plain local/editable install for another machine). This module is the
-prerequisite for Module 7 — CI/CD automates exactly the manual steps
-established here. Closes with a repo-state note: current branch renames
-to `develop`, and a new `main` branch is created as the stable/release
-branch, setting up Module 7's branch model.
+`python -m build` producing wheel + sdist, and five manual delivery paths
+ranging from TestPyPI/PyPI (Trusted Publishing) down to a fully
+self-contained standalone `.exe` (PyInstaller) and a Raspberry Pi/`pipx`
+install for machines with no prior Python setup. This module is the
+prerequisite for [Module 7](./Module7_Course_Notes.md) — CI/CD automates
+exactly the manual steps established here. Closes with a repo-state note:
+current branch renames to `develop`, and a new `main` branch is created as
+the stable/release branch, setting up Module 7's branch model.
 
 **Sections:**
 - Build Backends and `pyproject.toml`
@@ -154,6 +199,8 @@ branch, setting up Module 7's branch model.
 - Manual Delivery Path 1 — TestPyPI / PyPI (Trusted Publishing vs. token upload)
 - Manual Delivery Path 2 — conda packaging
 - Manual Delivery Path 3 — Local/editable install on another machine
+- Manual Delivery Path 4 — Standalone `.exe` (PyInstaller): launcher-script and hidden-import fixes, the `.spec` file, verifying on a Python-free machine
+- Manual Delivery Path 5 — Unix / Raspberry Pi (`pipx`): why PyInstaller/conda don't fit, why `pipx` does
 - Standalone Package Checklist (what "ready for installation on another machine" means)
 - Exercise Checklist
 
@@ -161,15 +208,20 @@ branch, setting up Module 7's branch model.
 
 ## Module 7 — CI/CD: GitHub Actions
 
-**Summary:** Migrated the manual Module 6 delivery process into two GitHub
-Actions workflows, using a two-branch model (`develop` = integration,
-`main` = release) with GitHub branch protection as the enforcement
-mechanism. Covered the distinction between `pull_request`-triggered checks
-(gates, block merge) and `push`-triggered checks (post-merge confirmation),
-PyPI Trusted Publishing via OIDC, auto-tagging with idempotency, and the
-four standard working scenarios including the hotfix exception path.
-Explicitly separates what is GitHub-platform-dependent (portable only via
-migration effort) from what is tooling-standard (portable as-is).
+**Summary:** Migrated the manual [Module 6](./Module6_Course_Notes.md)
+delivery process into two GitHub Actions workflows, using a two-branch
+model (`develop` = integration, `main` = release) with GitHub branch
+protection as the enforcement mechanism. Covered the distinction between
+`pull_request`-triggered checks (gates, block merge) and `push`-triggered
+checks (post-merge confirmation), PyPI Trusted Publishing via OIDC,
+auto-tagging with idempotency, and the four standard working scenarios
+including the hotfix exception path — all four walked end-to-end against
+the real repo, not just designed. Explicitly separates what is
+GitHub-platform-dependent (portable only via migration effort) from what
+is tooling-standard (portable as-is). Closes with final verification
+tasks: a real clean-room `pip install` from PyPI, automated docs
+deployment to GitHub Pages (with two real CI bugs found and fixed along
+the way), and granting third-party collaborator access.
 
 **Sections:**
 - GitHub Actions vs. NAnt — Conceptual Mapping
@@ -178,10 +230,32 @@ migration effort) from what is tooling-standard (portable as-is).
 - Workflow 2 — `release.yml` (triggers, gate vs. ship runs, `if: github.event_name == 'push'`)
 - Branch Protection Rules (required status checks, up-to-date requirement)
 - PyPI Trusted Publishing (OIDC, `permissions: id-token: write`)
-- Auto-Tag and Release Idempotency
-- **The Four Working Scenarios** (Normal Development, Feature Work, Build/Release, Hotfix)
+- **The Four Working Scenarios** (Normal Development, Feature Work, Build/Release, Hotfix) — each verified end-to-end
 - **What Is GitHub-Dependent vs. Tool-Standard** (portability audit)
+- Final Verification Tasks — clean-room PyPI install, GitHub Pages docs deployment, third-party collaborator access
 - Exercise Checklist
+
+---
+
+## Related Repository Documentation
+
+The course notes above are a **narrative record** of how NowcastingCLI was
+built, module by module — they capture decisions, dead ends, and the
+reasoning behind them, and are not updated after the fact when the repo
+moves on. For the **current, living state** of the same subjects, see:
+
+| Topic | Course narrative | Current state |
+|---|---|---|
+| CI/CD workflows | [Module 7](./Module7_Course_Notes.md) | [`README.md` § CI/CD Pipeline](../README.md#cicd-pipeline) and [`.github/workflows/`](../.github/workflows/) |
+| Packaging / distribution | [Module 6](./Module6_Course_Notes.md) | [`README.md` § Building a Distributable Package](../README.md#building-a-distributable-package) |
+| Build config, dependencies, version | [Module 1](./Module1_Course_Notes.md), [Module 6 §3](./Module6_Course_Notes.md#3-version-source-of-truth) | [`pyproject.toml`](../pyproject.toml) |
+| Logging | [Module 4](./Module4_Course_Notes.md) | [`README.md` § Logging](../README.md#logging) and `nowcastingcli/logging_config.py` |
+| API / architecture docs | [Module 5](./Module5_Course_Notes.md) | [`docs/`](../docs/) (built via `mkdocs serve`/`mkdocs build`) |
+| Conda environment sync | *(not covered by a module)* | [`README_CONDA_ENV_SYNC.md`](../README_CONDA_ENV_SYNC.md) |
+
+When the two disagree, the repo docs in the right-hand column are correct
+— treat a mismatch as the course notes having fallen behind, not the other
+way around.
 
 ---
 
@@ -192,4 +266,4 @@ migration effort) from what is tooling-standard (portable as-is).
 - fringeDemod-qt (Module 3) — PyQt GUI, threading, SQLite
 - fringeDemod-web (Module 4) — FastAPI, HTTP basics, Docker (optional)
 
-*This index and the per-module files will be extended as each new module is completed.*
+*This index and the per-module files will be extended as each new module of Project 2 is completed.*

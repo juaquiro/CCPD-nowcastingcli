@@ -1,14 +1,14 @@
 # Module 1 — NowcastingCLI: Project Setup
 
 > Part of: Claude Code for Python Developers: Hands-On Agentic Coding
-> Repo: CCPD-nowcastingcli
-> See also: [Course_Notes_Index.md](./Course_Notes_Index.md)
+> Project: NowcastingCLI (`CCPD-nowcastingcli`)
+> Previous: — (starting point of the course)
+> Next: [Module 2 — pytest: Unit Testing NowcastingCLI](./Module2_Course_Notes.md)
+> See also: [Course Notes Index](./Course_Notes_Index.md)
 
 ---
 
-## Part 1 — NowcastingCLI: Project Setup
-
-### Project Overview
+## Project Overview
 
 **NowcastingCLI** is the hands-on vehicle for the entire first arc of the course.
 It is a terminal-based weather nowcasting dashboard that accepts periodic manual
@@ -35,7 +35,7 @@ of heuristic rules) that tooling is always the focus — not the science.
 
 ---
 
-### Project Structure
+## Project Structure
 
 ```
 nowcastingcli/
@@ -58,7 +58,7 @@ The layout is packaging-ready from day one — no restructuring needed later.
 
 ---
 
-### Environment Setup
+## Environment Setup
 
 ```bash
 conda create -n nowcastingcli python=3.11
@@ -82,9 +82,9 @@ nowcastingcli = "nowcastingcli.main:run"
 
 ---
 
-### Module Breakdown
+## Module Breakdown
 
-#### `models.py` — Observation dataclass
+### `models.py` — Observation dataclass
 
 ```python
 from dataclasses import dataclass
@@ -105,7 +105,7 @@ observation cycle. The list of these objects is the entire in-memory time series
 
 ---
 
-#### `physics.py` — Barometric formula
+### `physics.py` — Barometric formula
 
 ```python
 def normalize_pressure(pressure_hpa: float, altitude_m: float, temperature_c: float) -> float:
@@ -124,7 +124,7 @@ This is a pure function with no side effects — ideal for unit testing.
 
 ---
 
-#### `heuristics.py` — Nowcast logic
+### `heuristics.py` — Nowcast logic
 
 ```python
 WORSENING = "worsening"
@@ -149,7 +149,7 @@ and makes the logic easy to test with minimal fixtures.
 
 ---
 
-#### `display.py` — Rich dashboard
+### `display.py` — Rich dashboard
 
 Key helpers:
 
@@ -171,7 +171,7 @@ live-updating display — the terminal is redrawn from scratch on every observat
 
 ---
 
-#### `main.py` — Entry point
+### `main.py` — Entry point
 
 ```python
 def get_float(prompt: str, min_val: float, max_val: float) -> float:
@@ -186,7 +186,7 @@ def run() -> None:
 
 ---
 
-#### `pyproject.toml` — Packaging metadata
+### `pyproject.toml` — Packaging metadata
 
 ```toml
 [build-system]
@@ -214,28 +214,28 @@ for scientific/engineering packages.
 
 ---
 
-### Key Concepts
+## Key Concepts
 
-#### Editable install (`pip install -e .`)
+### Editable install (`pip install -e .`)
 
 Installs the package by reference to the source tree rather than copying it.
 Changes to `.py` files take effect immediately without reinstalling.
 Essential for development. Equivalent to `python setup.py develop` (old style).
 
-#### Pure functions and testability
+### Pure functions and testability
 
 `physics.py` and `heuristics.py` contain only pure functions:
 no I/O, no global state, deterministic output for any given input.
 This is the property that makes unit testing trivial — no mocking required.
 
-#### `rich` console lifecycle
+### `rich` console lifecycle
 
 `Console()` is instantiated once at module level in `display.py` and imported
 into `main.py`. This avoids creating multiple console instances, which can
 cause interleaved output. `console.clear()` + full redraw is the simplest
 approach to a live dashboard without `asyncio` or `curses`.
 
-#### In-memory time series
+### In-memory time series
 
 The entire session history is a plain Python `list[Observation]`.
 No database, no file I/O, no persistence between sessions.
@@ -243,7 +243,7 @@ This is intentional for Project 1 — persistence is introduced in Projects 4–
 
 ---
 
-### Exercise Checklist
+## Exercise Checklist
 
 - [ ] Create directory structure and all module files
 - [ ] Run `pip install -e .` — verify no errors
@@ -257,16 +257,22 @@ This is intentional for Project 1 — persistence is introduced in Projects 4–
 
 ---
 
-### What Each Module Will Touch
+## What Each Module Will Touch
+
+The pure functions and clean module boundaries established here are what
+make every later module tractable — each one builds directly on this
+scaffold rather than restructuring it:
 
 | Course Module | Target in NowcastingCLI |
 |---|---|
-| **pytest** | `physics.py`, `heuristics.py` — pure functions, no fixtures needed |
-| **Claude Code** | Refactoring, test generation, code explanation |
-| **Logging** | Observation loop in `main.py` — structured log per cycle |
-| **MkDocs** | Public API of `physics.py` and `heuristics.py` |
-| **GitHub Actions** | pytest on push; ruff linting |
-| **Packaging** | Build wheel; publish to TestPyPI or local index |
+| [Module 2 — pytest](./Module2_Course_Notes.md) | `physics.py`, `heuristics.py` — pure functions, no fixtures needed |
+| [Module 3 — Claude Code](./Module3_Course_Notes.md) | Refactoring, test generation, code explanation |
+| [Module 4 — Logging](./Module4_Course_Notes.md) | Observation loop in `main.py` — structured log per cycle |
+| [Module 5 — MkDocs](./Module5_Course_Notes.md) | Public API of `physics.py` and `heuristics.py` |
+| [Module 6 — Packaging](./Module6_Course_Notes.md) | Build wheel/sdist; publish to TestPyPI, PyPI, or a standalone `.exe` |
+| [Module 7 — CI/CD](./Module7_Course_Notes.md) | Automates Module 6's manual steps: `pytest` on every push/PR (`smoke-tests.yml`), full suite + tag/release/publish on `main` (`release.yml`) |
 
 ---
+
+**Module 1 complete.** Next: [Module 2 — pytest: Unit Testing NowcastingCLI](./Module2_Course_Notes.md).
 

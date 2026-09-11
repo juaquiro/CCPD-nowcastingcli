@@ -2,7 +2,9 @@
 
 > Part of: Claude Code for Python Developers: Hands-On Agentic Coding
 > Project: NowcastingCLI (`CCPD-nowcastingcli`)
-> Builds on: Module 6 (the manual process this module automates)
+> Previous: [Module 6 — Build, Packaging, and Manual Delivery](./Module6_Course_Notes.md) (the manual process this module automates)
+> Next: — (final module of Course Project 1; see "On the Horizon" in the index for Project 2)
+> See also: [Course Notes Index](./Course_Notes_Index.md)
 
 ---
 
@@ -122,6 +124,11 @@ both needed for the workflow to run at all on a fresh runner:
   environment within a workflow run) and needs `actions/setup-python@v5`
   + `pip install build` before `python -m build` — neither Python nor
   the `build` package is present by default.
+
+A fourth job, `deploy-docs`, was added later (§9.2) to publish the
+MkDocs site to GitHub Pages on every release-triggering push — runs in
+parallel with `tag-and-release`/`build-and-publish`, all three gated
+only by `full-suite` and the `push`-event guard.
 
 `pyproject.toml`'s `[project].version` is confirmed a static string
 (`"0.6.0"` as of Module 7 work), not `setuptools_scm`-managed, so the
@@ -250,7 +257,7 @@ as a trusted publisher for the package. No `PYPI_API_TOKEN` secret stored
 anywhere. The workflow just needs `permissions: id-token: write` on the
 publishing job — GitHub mints a short-lived OIDC token, PyPI verifies it
 against the registered repo/workflow, publish proceeds. This is the modern
-replacement for token-in-secrets upload from Module 6.
+replacement for the token-in-secrets upload from [Module 6](./Module6_Course_Notes.md#41-one-time-setup-testpypi-account-and-api-token).
 
 **Registered in this project (pending publisher, since `nowcastingcli`
 hasn't been published to real PyPI yet):**
@@ -544,7 +551,7 @@ NAnt-driven pipeline):
 | `actions/checkout`, `actions/setup-python`, `actions/upload-artifact` | **Yes** | GitHub Marketplace actions. Equivalent steps exist elsewhere (e.g., GitLab CI has built-in checkout, no marketplace-action needed) but these exact action names don't port. |
 | `gh release create`, `gh` CLI | **Yes** | GitHub CLI, talks to GitHub's Releases API specifically. |
 | `pypa/gh-action-pypi-publish` + OIDC Trusted Publishing config | **Partially** | The *action* is GitHub-specific, but PyPI's Trusted Publisher registration also supports GitLab CI/CD and other OIDC-capable systems — the OIDC *mechanism* is portable, this specific action wrapper is not. |
-| GitHub Pages deployment (`peaceiris/actions-gh-pages` or `mkdocs gh-deploy`) | **Yes** (hosting) | GitHub Pages as a hosting target is GitHub-specific; `mkdocs build` output itself is not — could deploy the same built `site/` directory anywhere. |
+| GitHub Pages deployment (`mkdocs gh-deploy`, i.e. `deploy-docs` job) | **Yes** (hosting) | GitHub Pages as a hosting target is GitHub-specific; `mkdocs build` output itself is not — could deploy the same built `site/` directory anywhere. **Live in this repo** as of §9.2 — `mkdocs gh-deploy` pushes to `gh-pages` branch on every release push. |
 | Secrets management (`permissions: id-token: write`) | **Yes** (syntax) | Concept (short-lived scoped credentials) is portable; the `permissions:` block syntax is GitHub Actions-specific. |
 
 **Takeaway:** the actual engineering (what to test, what to build, what to
@@ -553,6 +560,215 @@ GitHub-specific is almost entirely the *orchestration and enforcement*
 layer (YAML trigger syntax, branch protection, marketplace actions) — this
 is normal and expected; it's the same ratio you'd see migrating a NAnt
 pipeline to a different build/CI system.
+
+---
+
+## 9. Final Verification Tasks
+
+### 9.1 Clean-room install from real PyPI
+
+Distinct from Module 6's TestPyPI-only walkthrough — this validates that
+the actual published `nowcastingcli` package, as a stranger would
+encounter it, installs and runs correctly with no dependency on this
+machine's dev environment (no editable install, no local `PYTHONPATH`
+propping anything up).
+
+```bash
+conda create -n pypi-verify python=3.11 -y
+conda activate pypi-verify
+pip install nowcastingcli
+```
+
+Entry point, from `pyproject.toml`:
+```toml
+[project.scripts]
+nowcastingcli = "nowcastingcli.main:cli"
+```
+
+Verified:
+```bash
+which nowcastingcli         # confirms the console script resolved
+nowcastingcli --help
+pip show nowcastingcli      # Version: 0.6.2 — confirms latest release, not a stale cache
+```
+
+**Result: confirmed working.** `pip install nowcastingcli` in a fresh
+conda env resolves `Version: 0.6.2` (the current tip after Scenario 4's
+hotfix) and the `nowcastingcli` console script runs correctly — proof
+the PyPI Trusted Publishing pipeline from §6 produces a genuinely
+installable package, not just a successful-looking Action run.
+
+### 9.2 Checking the deployed app's documentation
+
+Two ways to read the docs, depending on whether you're working locally
+or want the published, always-current version.
+
+**Manual (local, always works, no deployment dependency):**
+```bash
+conda activate <your-dev-env>
+pip install -e .[docs]
+mkdocs serve
+```
+Serves at `http://127.0.0.1:8000` with live-reload on edits — useful
+while actively writing docs, or as a fallback if Pages is ever down.
+
+**Deployed (GitHub Pages, published automatically on release):**
+
+Previously a gap (see §8's original table entry marking GitHub Pages
+hosting as configured-but-unused) — closed by adding a `deploy-docs`
+job to `release.yml`:
+
+```yaml
+  deploy-docs:
+    needs: full-suite
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions: { contents: write }        # pushes to the gh-pages branch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.x" }
+      - run: pip install -e .[dev,docs]
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - run: mkdocs gh-deploy --force --clean
+```
+
+Runs in parallel with `tag-and-release`/`build-and-publish` (all three
+depend only on `full-suite`, not on each other) — docs publishing isn't
+gated on a successful package release, and vice versa. `mkdocs gh-deploy`
+builds the site and pushes it directly to a `gh-pages` branch in one
+step (via `ghp-import` under the hood); the `git config` lines are
+needed because the runner has no identity configured by default, and
+`gh-deploy`'s push needs one to attribute the commit to.
+
+One-time setup: GitHub Pages needs pointing at the `gh-pages` branch
+once it exists (created automatically by the first `deploy-docs` run).
+Either via UI (Settings → Pages → Source → "Deploy from a branch" →
+`gh-pages` / `/(root)`), or via `gh api` after that first run:
+```bash
+gh api -X POST repos/{owner}/{repo}/pages \
+  -f "source[branch]=gh-pages" -f "source[path]=/"
+```
+
+Once live, docs are reachable at `https://juaquiro.github.io/CCPD-nowcastingcli/`
+— updates automatically on every `push → main` that carries a version
+bump (or any release-triggering push), no manual redeploy step needed.
+
+**Bugs surfaced and fixed while wiring this up — all worth knowing,
+independent of the docs-deployment feature itself:**
+
+1. **`tag-and-release`'s idempotency check was blind.** `actions/checkout@v4`
+   defaults to a shallow clone (`fetch-depth: 1`, current commit only,
+   no tag refs). The existing-tag check (`git rev-parse "v$VERSION"`)
+   silently always failed to find tags that genuinely existed on the
+   remote, so the script fell through to the create-and-push path and
+   failed with a non-fast-forward rejection instead of skipping cleanly.
+   Fixed with `fetch-depth: 0` on that job's checkout step (full history
+   and tags).
+
+2. **`build-and-publish` had no skip logic of its own.** Even after fix
+   #1, a no-version-bump push to `main` would still attempt
+   `build-and-publish`, which PyPI correctly rejects (duplicate
+   version/filename) — a red job for an expected, harmless situation.
+   Fixed by having `tag-and-release` emit a job output:
+   ```yaml
+     tag-and-release:
+       outputs:
+         released: ${{ steps.tag.outputs.released }}
+       steps:
+         - id: tag
+           run: |
+             ...
+             echo "released=false" >> "$GITHUB_OUTPUT"   # skip path
+             ...
+             echo "released=true" >> "$GITHUB_OUTPUT"    # release path
+   ```
+   and `build-and-publish` reading it:
+   ```yaml
+     build-and-publish:
+       if: github.event_name == 'push' && needs.tag-and-release.outputs.released == 'true'
+   ```
+   Verified with a real no-bump push (the PR that added this very fix):
+   `tag-and-release` correctly skipped, and `build-and-publish` showed
+   as **skipped** (0s, no steps), not failed.
+
+3. **Squash-merged PRs into `main` create ancestry gaps.** After two
+   consecutive `develop → main` PRs were both merged via
+   `gh pr merge --squash`, a third PR from `develop` into `main` failed
+   with `mergeStateStatus: DIRTY` / `mergeable: CONFLICTING` — despite
+   `develop` and `main` having no real content disagreement. Squash
+   merges create a brand-new commit on `main` with no shared ancestry
+   to the original commit(s) still living on `develop`; two branches
+   end up with equivalent content but divergent history for the same
+   lines, which is enough to trip Git's merge algorithm on the next
+   round. Resolved via `gh pr checkout <PR#> && git fetch origin main
+   && git merge origin/main`, inspecting each conflict (confirmed
+   textually equivalent, not a real disagreement) before resolving.
+   **General lesson, consistent with the rationale documented in
+   Scenario 4:** repeated squash-merging of the *same two long-lived
+   branches* against each other, back and forth, erodes shared history
+   over time — this is exactly why the Scenario 4 back-merge used a
+   real merge commit (`--merge`) instead of squash. Squash is fine for
+   throwaway feature/hotfix branches merging in one direction only;
+   it's the wrong tool for two branches that repeatedly reconcile with
+   each other.
+
+### 9.3 Granting third-party collaborator access (contributor, non-admin)
+
+`CCPD-nowcastingcli` is a **personal repo**, not under an organization —
+this means access is a **direct collaborator invite**, not team-based
+access. (The mechanism differs under an org: access there is normally
+granted via team membership with a role assigned to the team, not to
+individuals directly — not applicable here, but worth knowing which
+case you're in before following any GitHub docs, since they cover both.)
+
+**GitHub's role model, personal repos:**
+
+| Role | Can do | Can't do |
+|---|---|---|
+| Read | Clone, view, open issues | Push, open PRs against the repo |
+| Triage | Read + manage issues/PRs (labels, assign, close) | Push code |
+| **Write** | Triage + push to non-protected branches, open PRs | Change branch protection, repo settings, manage collaborators |
+| Maintain | Write + manage some repo settings (webhooks, some config) | Change branch protection, delete repo, billing |
+| Admin | Everything | — |
+
+**`Write` is the correct role for a contributor with no admin rights** —
+matches "can open PRs and push to non-protected branches, cannot touch
+branch protection or repo settings." Given `develop` and `main` both
+already require PRs and passing status checks, a `Write` collaborator
+is structurally prevented from bypassing CI/CD gates even though they
+technically have push access — they simply can't push directly to
+either protected branch, the same restriction the repo owner faces
+without using the admin-bypass allowance. `Maintain` was considered
+and rejected: it grants some settings access beyond what "no admin
+rights" implies.
+
+**Invite via `gh api`:**
+```bash
+gh api -X PUT repos/{owner}/{repo}/collaborators/{username} \
+  -f permission=push
+```
+Note the naming inconsistency: the API's `permission` field uses `push`
+as the value for the `Write` role shown in the UI. Full value set:
+`pull` (Read), `triage` (Triage), `push` (Write), `maintain` (Maintain),
+`admin` (Admin).
+
+**Or via UI:** repo → Settings → Collaborators and teams → Add people →
+search username → role: **Write**.
+
+The invited person receives a notification/email and must accept before
+access activates — it's pending, not immediate, either way.
+
+**Verify:**
+```bash
+gh api repos/{owner}/{repo}/collaborators/{username}/permission
+```
+Expect `"permission": "write"`.
+
+*(Documented as mechanism only this session — not actually exercised
+against a real invite.)*
 
 ---
 
@@ -585,22 +801,41 @@ pipeline to a different build/CI system.
       (`gh pr merge --merge --delete-branch`), `develop` now carries
       the hotfix and version 0.6.2
 
-**Final Module 7 tasks (added at end of session, not yet started):**
-- [ ] Document install/run of the deployed app from real PyPI (`pip install
+**Final Module 7 tasks (added at end of session — all complete):**
+- [x] Document install/run of the deployed app from real PyPI (`pip install
       nowcastingcli` from a clean env, confirm entry point runs) — distinct
-      from Module 6's TestPyPI-only install walkthrough
-- [ ] Document how to check the deployed app's documentation (where MkDocs
-      output is published/hosted, if anywhere yet — GitHub Pages not yet
-      configured per §8, so this may surface that gap)
-- [ ] Document granting repo access to a third-party collaborator with
-      contributor-level (non-admin) rights — GitHub role model (Read/
-      Triage/Write/Maintain/Admin), which role fits "can open PRs and
-      push to non-protected branches but can't change branch protection
-      or repo settings," and whether to use direct collaborator invite
-      vs. a team (if repo is under an org)
+      from [Module 6](./Module6_Course_Notes.md#4-manual-delivery-path-1--testpypi--pypi)'s
+      TestPyPI-only install walkthrough — see §9.1, confirmed working, resolved v0.6.2
+- [x] Document how to check the deployed app's documentation — manual
+      `mkdocs serve` fallback documented, `deploy-docs` job added to
+      `release.yml`, verified live end-to-end (§9.2). Surfaced two
+      real bugs along the way: `tag-and-release`'s idempotency check
+      was blind under the default shallow checkout (fixed with
+      `fetch-depth: 0`), and `build-and-publish` had no way to know
+      when `tag-and-release` was a no-op (fixed with a `released` job
+      output gating `build-and-publish`'s `if:` condition) — confirmed
+      by a real no-version-bump push correctly skipping
+      `build-and-publish` (0s, no steps) rather than failing on a
+      PyPI duplicate-version rejection.
+- [x] Document granting repo access to a third-party collaborator with
+      contributor-level (non-admin) rights — see §9.3: `Write` role via
+      direct collaborator invite (personal repo, not org/team-based);
+      mechanism documented, not exercised against a real invite
 
 **Follow-up (non-blocking, logged from Scenario 3's first real run):**
-- [ ] Bump `actions/checkout`, `actions/setup-python`, and
+- [x] Bump `actions/checkout`, `actions/setup-python`, and
       `actions/upload-artifact` to newer major versions ahead of GitHub's
-      Node.js 20 runtime deprecation — currently auto-forced onto Node 24,
-      not yet broken, but worth addressing before support is withdrawn
+      Node.js 20 runtime deprecation — bumped `checkout@v4`→`v7`,
+      `setup-python@v5`→`v7`, `upload-artifact@v4`→`v7` across both
+      workflow files (all three ESM/Node 24-native releases); no
+      behavioral changes needed since none of the removed inputs
+      (e.g. `setup-python`'s dropped `pip-install`) were in use
+
+---
+
+**Module 7 complete — this closes Course Project 1 (NowcastingCLI).** The
+condensed, always-current version of this module's workflows lives in
+`README.md`'s "CI/CD Pipeline" section, which tracks the actual
+`.github/workflows/*.yml` files as they evolve after this course narrative
+was written. See the [Course Notes Index](./Course_Notes_Index.md#on-the-horizon)
+for what Project 2 (fringeDemod) covers next.

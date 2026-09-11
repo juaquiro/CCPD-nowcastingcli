@@ -2,7 +2,9 @@
 
 > Part of: Claude Code for Python Developers: Hands-On Agentic Coding
 > Project: NowcastingCLI (`CCPD-nowcastingcli`)
-> Prerequisite for: Module 7 (CI/CD) — CI automates exactly the manual steps here.
+> Previous: [Module 5 — Documentation: MkDocs for NowcastingCLI](./Module5_Course_Notes.md)
+> Next: [Module 7 — CI/CD: GitHub Actions](./Module7_Course_Notes.md) — CI automates exactly the manual steps here.
+> See also: [Course Notes Index](./Course_Notes_Index.md)
 > **Status: fully complete and verified** (fresh-env wheel install, fresh-env
 > sdist install, standalone `.exe`, and TestPyPI upload/install all tested
 > and passing).
@@ -11,17 +13,17 @@
 branch will be renamed `develop`, and a new `main` branch will be created
 from it as the stable/release branch. Nothing in this module's build steps
 is branch-dependent — build/package/publish commands run identically
-regardless of branch — but this rename is the setup Module 7's branch
-model (`develop` = integration, `main` = release) assumes as its starting
-point.
+regardless of branch — but this rename is the setup [Module 7](./Module7_Course_Notes.md#2-branch-model-develop-integration-vs-main-release)'s
+branch model (`develop` = integration, `main` = release) assumes as its
+starting point.
 
 ---
 
 ## 1. Build Backends and `pyproject.toml`
 
 Everything in this module runs through the build backend declared in
-`pyproject.toml`. NowcastingCLI already has one from Module 1 (editable
-install); this module completes the picture for a **distributable** build.
+`pyproject.toml`. NowcastingCLI already has one from [Module 1](./Module1_Course_Notes.md#pyprojecttoml--packaging-metadata)
+(editable install); this module completes the picture for a **distributable** build.
 
 **Actual verified state** (package name and entry point as they exist in
 the repo — not `nowcasting-cli`/`nowcast` as originally drafted):
@@ -550,6 +552,8 @@ A build is genuinely ready for another machine when:
 - [x] (Extra) Build and verify a standalone `.exe` via PyInstaller as an
       alternative delivery path for machines without Python installed
 
-**Module 6 complete.** Next: Module 7 (GitHub Actions CI/CD) — branch rename
-to `develop`/`main`, `smoke-tests.yml`, `release.yml`, Trusted Publishing via
-OIDC. Design was drafted in an earlier session but not yet executed hands-on.
+---
+
+**Module 6 complete.** Next: [Module 7 — CI/CD: GitHub Actions](./Module7_Course_Notes.md) —
+branch rename to `develop`/`main`, `smoke-tests.yml`, `release.yml`, Trusted
+Publishing via OIDC, and all four working scenarios walked end-to-end.
