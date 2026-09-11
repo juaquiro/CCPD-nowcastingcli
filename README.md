@@ -1,6 +1,7 @@
 # NowcastingCLI
 
 [![Smoke Tests](https://github.com/juaquiro/CCPD-nowcastingcli/actions/workflows/smoke-tests.yml/badge.svg?branch=develop)](https://github.com/juaquiro/CCPD-nowcastingcli/actions/workflows/smoke-tests.yml)
+[![Release Pipeline](https://github.com/juaquiro/CCPD-nowcastingcli/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/juaquiro/CCPD-nowcastingcli/actions/workflows/release.yml)
 
 A terminal-based weather nowcasting CLI built with Python and [Rich](https://github.com/Textualize/rich).
 
@@ -21,49 +22,165 @@ to cut a release.
 
 ---
 
+## CI/CD Pipeline
+
+Full walkthrough, rationale, and verified end-to-end runs live in
+[`course_notes/Module7_Course_Notes.md`](course_notes/Module7_Course_Notes.md).
+This section summarizes what's actually configured and how it behaves.
+
+Two GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/):
+
+### `smoke-tests.yml` — the `develop` gate
+
+```yaml
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: [develop]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.x" }
+      - run: pip install -e .[dev]
+      - run: pytest -m smoke --no-cov -v
+```
+
+Runs only the tests tagged `@pytest.mark.smoke` (fast subset), skipping
+coverage entirely (`--no-cov`) so it stays quick enough to gate every PR.
+
+### `release.yml` — the `main` pipeline
+
+```yaml
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  full-suite:        # checkout → install .[dev,docs] → pytest --cov → upload coverage → mkdocs build
+  deploy-docs:       # needs: full-suite, if: push        — mkdocs gh-deploy → gh-pages branch
+  tag-and-release:   # needs: full-suite, if: push        — read version from pyproject.toml, tag + gh release
+  build-and-publish: # needs: tag-and-release, if: push && released == 'true' — python -m build → PyPI (OIDC)
+```
+
+`full-suite` runs the whole test suite with coverage plus a docs build, on
+**both** `pull_request` and `push` events. The other three jobs are guarded
+by `if: github.event_name == 'push'` — they never fire on a PR preview, only
+once a merge actually lands on `main`. `tag-and-release` reads
+`[project].version` straight out of `pyproject.toml` via `tomllib`; if that
+version is already tagged (e.g. a docs-only merge with no version bump), it
+skips cleanly and emits `released=false`, which in turn makes
+`build-and-publish` skip too — no duplicate-version rejection from PyPI.
+Publishing uses PyPI Trusted Publishing (OIDC, `permissions: id-token:
+write`) — no `PYPI_API_TOKEN` secret stored anywhere.
+
+### The gate/confirmation pattern
+
+Both workflows share one shape: the **same job runs on two different
+triggers with two different roles**.
+
+| Event | Role | Can it block a merge? |
+|---|---|---|
+| `pull_request → develop` / `pull_request → main` | **Gate.** Required status check (`smoke` / `full-suite`) — branch protection blocks merge until it's green. | Yes |
+| `push → develop` / `push → main` | **Confirmation.** Fires automatically the instant the merge lands (the merge button *is* a push event). Can't block anything retroactively, but catches drift the PR check never saw (squash/merge-commit interactions, direct pushes). | No — informational only |
+
+Branch protection enforces the gate side: `develop` requires `smoke`; `main`
+requires `full-suite`. Both also block force-pushes and deletions; `main`
+additionally requires a PR (no direct pushes at all), since a push there can
+trigger a real, irreversible PyPI publish.
+
+### The four working scenarios
+
+Each scenario below is fully walked through and verified end-to-end in
+Module 7 §7 — this is the short version of what fires and why.
+
+**1. Normal Development** — small, low-risk changes pushed directly to
+`develop` (no PR). Fires `push → develop` only: a confirmation-only smoke
+run, since there's no PR to gate. Watch it live with `gh run watch`, or rely
+on the `README` badge / GitHub Actions email notifications as a passive
+safety net.
+
+**2. Feature Work** — branch off `develop` (`feature/xyz`), open a PR back
+into `develop`. Fires `pull_request → develop` as the **required gate** —
+merge is blocked until `smoke` is green. On merge, `push → develop` fires
+as the post-merge confirmation run.
+
+**3. Build / Release** — PR from `develop` into `main`. Fires
+`pull_request → main`, running `full-suite` only (tests, coverage, docs
+build) as the **required gate** — no tagging/publishing happens on a PR
+preview. On merge, `push → main` fires `full-suite` again to reconfirm,
+then `tag-and-release`, `build-and-publish`, and `deploy-docs` in sequence
+— a real version tag, GitHub Release, PyPI publish, and docs deploy to
+GitHub Pages, all from one merge.
+
+**4. Hotfix** — `main` is live and broken, but `develop` has unreleasable
+work in flight, so the fix can't route through the normal `develop → main`
+path. Branch `hotfix/xyz` **from `main`**, fix, bump the patch version,
+PR `hotfix/xyz → main` (same gate as Scenario 3). On merge, `push → main`
+tags/releases/publishes the patch version. The one manual step with no
+workflow trigger behind it: the fix must be **back-merged into `develop`**
+afterward (a real merge commit, not squash — see Module 7 §7 Scenario 4),
+or it silently disappears from the next regular release.
+
+---
+
 ## Project Structure
 
 ```
 NOWCASTINGCLI/
-├── nowcastingcli/              # installable package
-│   ├── __init__.py             # package marker
-│   ├── main.py                 # CLI entry point — cli(), run(), get_float(), edit_observation()
-│   ├── models.py               # Observation dataclass
-│   ├── physics.py              # barometric QNH normalisation
-│   ├── heuristics.py           # worsening / stable / improving logic
-│   ├── display.py              # Rich dashboard, sparkline, trend arrows
-│   └── logging_config.py       # dictConfig setup — rotating JSON file + stderr handlers
-├── tests/                      # pytest test suite
+├── .github/
+│   └── workflows/               # GitHub Actions CI/CD — see "CI/CD Pipeline" below
+│       ├── smoke-tests.yml      # fast gate on develop (push + pull_request)
+│       └── release.yml          # full suite, tag/release/publish, docs deploy on main
+├── nowcastingcli/               # installable package
+│   ├── __init__.py              # exposes __version__ from installed package metadata
+│   ├── main.py                  # CLI entry point — cli(), run(), get_float(), edit_observation()
+│   ├── models.py                # Observation dataclass
+│   ├── physics.py               # barometric QNH normalisation
+│   ├── heuristics.py            # worsening / stable / improving logic
+│   ├── display.py               # Rich dashboard, sparkline, trend arrows
+│   └── logging_config.py        # dictConfig setup — rotating JSON file + stderr handlers
+├── tests/                       # pytest test suite (mirrors nowcastingcli/ 1:1)
 │   ├── __init__.py
-│   ├── test_display.py         # tests for sparkline, trend_arrow, render_dashboard
-│   ├── test_heuristics.py      # tests for assess_conditions()
-│   ├── test_main.py            # tests for run() and get_float()
-│   ├── test_models.py          # tests for Observation dataclass
-│   └── test_physics.py         # tests for normalize_pressure()
-├── scripts/                    # standalone helper scripts
-│   ├── Init_observation.py     # quick manual smoke-test for Observation
-│   ├── test_observations.csv   # sample CSV for --input and logging smoke-tests
-│   ├── test_logging.sh         # logging smoke-test (Bash / Git Bash / macOS)
-│   ├── test_logging.bat        # logging smoke-test (Windows CMD)
-│   ├── sync_env.bat            # sync conda environment between machines
-│   └── update_lock.bat         # regenerate environment.lock.yml
-├── docs/                       # project documentation
-│   ├── index.md                # landing page
-│   ├── architecture.md         # module map and data-flow diagram
-│   ├── usage.md                # input loop, valid ranges, dashboard reference
-│   └── api/                    # per-module API reference (mkdocstrings stubs)
+│   ├── test_display.py          # tests for sparkline, trend_arrow, render_dashboard
+│   ├── test_heuristics.py       # tests for assess_conditions()
+│   ├── test_main.py             # tests for cli(), run(), get_float(), _record_observation()
+│   ├── test_models.py           # tests for Observation dataclass
+│   └── test_physics.py          # tests for normalize_pressure()
+├── scripts/                     # standalone helper scripts
+│   ├── Init_observation.py      # quick manual smoke-test for Observation
+│   ├── test_observations.csv    # sample CSV for --input and logging smoke-tests
+│   ├── test_logging.sh          # logging smoke-test (Bash / Git Bash / macOS)
+│   ├── test_logging.bat         # logging smoke-test (Windows CMD)
+│   ├── sync_env.bat             # sync conda environment between machines
+│   └── update_lock.bat          # regenerate environment.lock.yml
+├── docs/                        # project documentation (built by mkdocs, see mkdocs.yml)
+│   ├── index.md                 # landing page
+│   ├── architecture.md          # module map and data-flow diagram
+│   ├── usage.md                 # input loop, valid ranges, dashboard reference
+│   └── api/                     # per-module API reference (mkdocstrings stubs)
 │       ├── physics.md
 │       ├── models.md
 │       ├── heuristics.md
 │       └── display.md
-├── logs/                       # auto-created at runtime — rotating JSON log files
+├── logs/                        # auto-created at runtime — rotating JSON log files
 ├── .vscode/
-│   ├── launch.json             # pytest debug configuration
+│   ├── launch.json              # pytest debug configuration
 │   └── settings.json
-├── environment.lock.yml        # pinned conda environment snapshot
-├── pyproject.toml              # build, dependencies, and pytest config
-├── TODO.md                     # pending improvements
-├── SESSION_SUMMARY.md          # per-session change log
+├── launcher.py                  # PyInstaller entry point (absolute imports — see nowcastingcli.spec)
+├── nowcastingcli.spec           # PyInstaller build config for the standalone .exe
+├── mkdocs.yml                   # MkDocs Material site config
+├── mkdocs_hooks.py              # MkDocs build hooks
+├── environment.lock.yml         # pinned conda environment snapshot
+├── pyproject.toml               # build, dependencies, and pytest config
+├── TODO.md                      # pending improvements
+├── SESSION_SUMMARY.md           # per-session change log
 ├── README.md
 ├── course_notes/                # course notes, split per module
 │   ├── Course_Notes_Index.md
@@ -71,8 +188,10 @@ NOWCASTINGCLI/
 │   ├── Module2_Course_Notes.md
 │   ├── Module3_Course_Notes.md
 │   ├── Module4_Course_Notes.md
-│   └── Module5_Course_Notes.md
-└── README_CONDA_ENV_SYNC.md    # guide for syncing conda envs across machines
+│   ├── Module5_Course_Notes.md
+│   ├── Module6_Course_Notes.md  # packaging: PyPI, conda, wheel, PyInstaller .exe, pipx
+│   └── Module7_Course_Notes.md  # CI/CD: GitHub Actions, branch protection, release scenarios
+└── README_CONDA_ENV_SYNC.md     # guide for syncing conda envs across machines
 ```
 
 ---
@@ -92,7 +211,11 @@ Human-readable docs live in `docs/`:
 | [`docs/api/display.md`](docs/api/display.md) | Dashboard rendering functions API reference |
 
 Course notes live in [`course_notes/`](course_notes/), split per module and
-indexed in [`course_notes/Course_Notes_Index.md`](course_notes/Course_Notes_Index.md).
+indexed in [`course_notes/Course_Notes_Index.md`](course_notes/Course_Notes_Index.md) —
+notably [`Module6_Course_Notes.md`](course_notes/Module6_Course_Notes.md)
+(packaging/distribution, see "Building a Distributable Package" below) and
+[`Module7_Course_Notes.md`](course_notes/Module7_Course_Notes.md) (CI/CD,
+see "CI/CD Pipeline" above).
 
 To build and serve the docs site locally:
 
@@ -114,12 +237,12 @@ pip install -e ".[docs,dev]"
 
 ```toml
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "nowcastingcli"
-version = "0.1.0"
+version = "0.6.3"
 description = "Terminal weather nowcasting dashboard"
 requires-python = ">=3.11"
 dependencies = ["rich>=13.0", "python-json-logger"]
@@ -133,10 +256,13 @@ where = ["."]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=nowcastingcli --cov-fail-under=80"
+markers = [
+    "smoke: fast subset run on every push/PR to develop",
+]
 
 [project.optional-dependencies]
 docs = [
-    "mkdocs",
+    "mkdocs>=1.5,<2.0",
     "mkdocs-material",
     "mkdocstrings[python]",
 ]
@@ -150,14 +276,15 @@ dev = [
 
 Key sections explained:
 
-- **`[build-system]`** — tells pip to use `setuptools` to build the package.
-- **`[project]`** — package metadata: name, version, Python version constraint, and runtime dependencies (`rich`, `python-json-logger`).
-- **`[project.scripts]`** — registers the `nowcastingcli` shell command, pointing it at the `cli()` entry point in `main.py`. `cli()` parses `--input` from `sys.argv` and delegates to `run()`. Available anywhere in the active environment after `pip install -e .`.
-- **`[project.optional-dependencies]`** — extra dependency groups. `docs` (MkDocs, the Material theme, `mkdocstrings`) installs with `pip install -e ".[docs]"`; `dev` (`pytest`, `pytest-cov`, `setuptools`, `wheel`) installs with `pip install -e ".[dev]"`. Install both together, on top of the required dependencies, with `pip install -e ".[docs,dev]"`.
+- **`[build-system]`** — tells pip to use `setuptools` (pinned `>=68`) plus `wheel` to build the package; both are needed for the sdist/wheel produced by `python -m build` in the release pipeline (see "CI/CD Pipeline" below).
+- **`[project]`** — package metadata: name, version (bumped on every release-worthy change — `tag-and-release` reads this field directly via `tomllib`), Python version constraint, and runtime dependencies (`rich`, `python-json-logger`).
+- **`[project.scripts]`** — registers the `nowcastingcli` shell command, pointing it at the `cli()` entry point in `main.py`. `cli()` parses `--input`/`--version`/`--help` from `sys.argv` and delegates to `run()`. Available anywhere in the active environment after `pip install -e .`.
+- **`[project.optional-dependencies]`** — extra dependency groups. `docs` (MkDocs pinned `>=1.5,<2.0`, the Material theme, `mkdocstrings`) installs with `pip install -e ".[docs]"`; `dev` (`pytest`, `pytest-cov`, `setuptools`, `wheel`) installs with `pip install -e ".[dev]"`. Install both together, on top of the required dependencies, with `pip install -e ".[docs,dev]"` — exactly what `release.yml`'s `full-suite` job does, since it needs both the test tooling and `mkdocs build`.
 - **`[tool.setuptools.packages.find]`** — tells setuptools to auto-discover the `nowcastingcli` package from the project root.
 - **`[tool.pytest.ini_options]`** — pytest configuration baked into `pyproject.toml` so no separate `pytest.ini` is needed:
   - `testpaths` tells pytest to look for tests only in `tests/`.
-  - `addopts` automatically adds coverage flags to every `pytest` run: `--cov=nowcastingcli` measures coverage of the source package, and `--cov-fail-under=80` fails the run if total coverage drops below 80 %.
+  - `addopts` automatically adds coverage flags to every `pytest` run: `--cov=nowcastingcli` measures coverage of the source package, and `--cov-fail-under=80` fails the run if total coverage drops below 80 %. `smoke-tests.yml` overrides this per-invocation with `--no-cov` since it only runs the `smoke`-marked subset, not the full suite.
+  - `markers` registers the custom `smoke` marker (`@pytest.mark.smoke`) used to tag the fast subset that `smoke-tests.yml` runs on every push/PR to `develop` — without registering it here, pytest would warn on unknown markers.
 
 ---
 
@@ -348,7 +475,7 @@ Expected log events per observation cycle, in order:
 | Event | Level | Source |
 |---|---|---|
 | Session start | `INFO` | `main` |
-| Raw sensor input | `DEBUG` | `main` |
+| Observation recorded (timestamp, raw pressure, `pressure_qnh`, temperature, humidity, altitude) | `DEBUG` | `main` |
 | Observation recorded | `INFO` | `display` |
 | Verdict change (when it occurs) | `WARNING` | `main` |
 
@@ -596,7 +723,7 @@ The `logs/` directory is created automatically on first run. The file handler ro
 
 | Level | Where | What is logged |
 |-------|-------|----------------|
-| `DEBUG` | `main.py` | Raw sensor input per observation (pressure, temperature, humidity, altitude) |
+| `DEBUG` | `main.py` | Each observation recorded, including `timestamp` and computed `pressure_qnh` alongside the raw pressure, temperature, humidity, and altitude — logged after normalization so the entry matches the in-memory `Observation` record |
 | `INFO` | `display.py` | Each observation recorded, with `pressure_qnh` and the current verdict |
 | `WARNING` | `main.py` | Verdict transitions (e.g. `stable → worsening`) |
 | `INFO` | `main.py` | Session start |
